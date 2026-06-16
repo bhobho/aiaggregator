@@ -1,0 +1,90 @@
+# AI / Agentic-AI news sources (RSS/Atom only — no scraping).
+# category: lab | research | news | community
+# A dead/unreachable feed is skipped gracefully and shown on /health.
+
+sources:
+  # ---- Labs / companies ----
+  - name: OpenAI Blog
+    url: https://openai.com/blog/rss.xml
+    category: lab
+    company: OpenAI
+  # Anthropic has no official RSS; use Google News (free, no key) for coverage.
+  - name: Anthropic News
+    url: https://news.google.com/rss/search?q=Anthropic+Claude+AI&hl=en-US&gl=US&ceid=US:en
+    category: lab
+    company: Anthropic
+  - name: Google DeepMind Blog
+    url: https://deepmind.google/blog/rss.xml
+    category: lab
+    company: Google DeepMind
+  - name: Google Research Blog
+    url: https://research.google/blog/rss/
+    category: lab
+    company: Google
+  # Meta AI blog has no reliable RSS; use Google News (free, no key) for coverage.
+  - name: Meta AI News
+    url: https://news.google.com/rss/search?q=%22Meta+AI%22+OR+Llama&hl=en-US&gl=US&ceid=US:en
+    category: lab
+    company: Meta
+  - name: Microsoft Research Blog
+    url: https://www.microsoft.com/en-us/research/feed/
+    category: lab
+    company: Microsoft
+  - name: AWS Machine Learning Blog
+    url: https://aws.amazon.com/blogs/machine-learning/feed/
+    category: lab
+    company: AWS
+  - name: NVIDIA Blog
+    url: https://blogs.nvidia.com/feed/
+    category: lab
+    company: Nvidia
+  - name: Hugging Face Blog
+    url: https://huggingface.co/blog/feed.xml
+    category: lab
+    company: Hugging Face
+
+  # ---- Tech news ----
+  - name: TechCrunch AI
+    url: https://techcrunch.com/category/artificial-intelligence/feed/
+    category: news
+  - name: The Verge AI
+    url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+    category: news
+  - name: Ars Technica AI
+    url: https://arstechnica.com/ai/feed/
+    category: news
+  - name: VentureBeat AI
+    url: https://venturebeat.com/category/ai/feed/
+    category: news
+  - name: MIT Technology Review
+    url: https://www.technologyreview.com/feed/
+    category: news
+
+  # ---- Community ----
+  - name: Hacker News Front Page
+    url: https://hnrss.org/frontpage
+    category: community
+
+# Keyword filter applied to broad community feeds (HN, subreddits) so only
+# AI-relevant items are kept. Lab/research/news feeds are already on-topic.
+community_keywords:
+  - ai
+  - artificial intelligence
+  - llm
+  - gpt
+  - claude
+  - gemini
+  - agent
+  - agentic
+  - model
+  - neural
+  - machine learning
+  - deep learning
+  - openai
+  - anthropic
+  - deepmind
+  - hugging face
+  - transformer
+  - rag
+  - fine-tun
+  - inference

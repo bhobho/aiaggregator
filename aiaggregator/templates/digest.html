@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Daily Digest · AI Aggregator{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="flex items-center gap-3 mb-5">
+    <h1 class="text-2xl font-extrabold">Daily AI Digest</h1>
+    {% if dates %}
+    <select class="ml-auto bg-white border border-gray-300 rounded px-2 py-1.5 text-sm"
+            onchange="window.location='/digest?date='+this.value">
+      {% for d in dates %}
+      <option value="{{ d }}" {% if digest and digest[0] == d %}selected{% endif %}>{{ d }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+  </div>
+
+  {% if digest %}
+    <article class="bg-white border border-gray-200 rounded-lg p-8
+                    [&_h1]:text-xl [&_h1]:font-extrabold [&_h1]:mb-5 [&_h1]:text-gray-900
+                    [&_h3]:text-base [&_h3]:font-bold [&_h3]:mt-6 [&_h3]:text-gray-900
+                    [&_a]:accent [&_a]:font-semibold
+                    [&_p]:text-gray-700 [&_p]:my-1.5 [&_em]:text-gray-400 [&_code]:text-gray-500 [&_code]:text-xs">
+      {{ digest[1] | markdown | safe }}
+    </article>
+  {% else %}
+    <p class="text-gray-500 bg-white border border-gray-200 rounded-lg p-8">No digest yet. It is generated
+      daily, or after a refresh once articles are summarized.</p>
+  {% endif %}
+</div>
+{% endblock %}

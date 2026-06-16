@@ -1,0 +1,57 @@
+{% set a = g.lead %}
+{% set src = srcmap.get(a.source_id, ('Source','news')) %}
+{% set scat = src[1] %}
+{% set label = (a.companies[0] if a.companies else src[0]) %}
+{% set lcolor = 'accent' %}
+{% set featured = featured|default(false) %}
+{% set compact = compact|default(false) %}
+
+<article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow
+                {% if featured %}p-6{% else %}p-4{% endif %}"
+         x-data="{ open:false }">
+  <div class="flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold">
+    <span class="{{ lcolor }}">{{ label }}</span>
+    {% set imp = a.importance or 0 %}
+    {% if imp >= 70 %}<span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>{% endif %}
+    <span class="text-gray-400 font-normal normal-case ml-auto">{{ a.published_at | timeago or (a.fetched_at | timeago) }}</span>
+  </div>
+
+  <a href="{{ a.url }}" target="_blank" rel="noopener"
+     class="block mt-2 font-bold text-gray-900 hover:accent leading-snug
+            {% if featured %}text-2xl{% elif compact %}text-sm line-clamp-3{% else %}text-base line-clamp-2{% endif %}">
+    {{ a.title }}
+  </a>
+
+  {% if not compact %}
+    {% if a.summary %}
+      <p class="mt-2 text-sm text-gray-600 {% if featured %}line-clamp-4{% else %}line-clamp-3{% endif %}">{{ a.summary }}</p>
+    {% elif a.status == 'new' %}
+      <p class="mt-2 text-sm text-gray-400 italic line-clamp-2">{{ a.raw_summary[:160] }} · summarizing…</p>
+    {% else %}
+      <p class="mt-2 text-sm text-gray-600 line-clamp-2">{{ a.raw_summary[:160] }}</p>
+    {% endif %}
+
+    <div class="mt-3 flex flex-wrap items-center gap-1.5">
+      {% for t in a.tags %}
+      <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ t }}</span>
+      {% endfor %}
+      <span class="text-[11px] text-gray-400 ml-auto">{{ src[0] }}</span>
+    </div>
+
+    {% if g.extras %}
+    <div class="mt-3 border-t border-gray-100 pt-2">
+      <button type="button" @click="open=!open" class="text-xs accent font-semibold">
+        <span x-show="!open">Also reported by {{ g.extras|length }} other source{{ 's' if g.extras|length>1 else '' }}</span>
+        <span x-show="open" x-cloak>Hide sources</span>
+      </button>
+      <ul x-show="open" x-cloak class="mt-2 space-y-1">
+        {% for e in g.extras %}
+        {% set esrc = srcmap.get(e.source_id, ('Source','news')) %}
+        <li class="text-xs"><a href="{{ e.url }}" target="_blank" rel="noopener" class="text-gray-700 hover:accent">{{ e.title }}</a>
+          <span class="text-gray-400">· {{ esrc[0] }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  {% endif %}
+</article>
