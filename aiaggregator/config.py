@@ -27,6 +27,17 @@ class Settings(BaseSettings):
     enrich_batch: int = 8        # articles per enrichment pass
     digest_hour: int = 7         # build daily digest at 07:00 local
 
+    # Public base URL (e.g. https://news.example.com) used to build absolute
+    # Open Graph URLs for link previews. Leave empty to derive from the request.
+    public_url: str = ""
+
+    # Hidden analytics page (not linked in the UI).
+    # If analytics_token is set, the page requires ?key=<token>; otherwise it is
+    # reachable at analytics_path by obscurity only. Set the token in .env since the
+    # repo is public.
+    analytics_path: str = "/_insights"
+    analytics_token: str = ""
+
     # Ingestion
     http_timeout: float = 30.0
     user_agent: str = "aiaggregator/0.1 (+local; RSS reader)"
@@ -34,14 +45,15 @@ class Settings(BaseSettings):
 
     # Clustering
     cluster_window_days: int = 7
-    cluster_threshold: float = 0.55  # cosine similarity to merge stories
+    cluster_threshold: float = 0.42  # cosine similarity to merge near-duplicate stories
 
     # Composite ranking (weights need not sum to 1; relative scale matters)
-    rank_w_importance: float = 0.45   # LLM-assigned significance
-    rank_w_recency: float = 0.25      # how fresh
-    rank_w_cluster: float = 0.20      # how many sources cover the story
-    rank_w_source: float = 0.10       # source-type trust
-    rank_recency_halflife_hours: float = 36.0
+    rank_w_importance: float = 0.40     # LLM-assigned significance
+    rank_w_recency: float = 0.30        # how fresh
+    rank_w_cluster: float = 0.15        # how many sources cover the story
+    rank_w_source: float = 0.10         # source-type trust
+    rank_w_announcement: float = 0.40   # product / framework / agentic announcement
+    rank_recency_halflife_hours: float = 30.0
 
 
 settings = Settings()

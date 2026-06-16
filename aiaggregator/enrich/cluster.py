@@ -56,12 +56,14 @@ def _cosine(a: dict[str, float], b: dict[str, float]) -> float:
 
 def recluster(conn: sqlite3.Connection) -> int:
     """Recompute clusters over the recent window. Returns number of clusters formed."""
+    # Cluster ALL recent items (not just enriched) so duplicates collapse in the feed
+    # even before summarization. Titles are the strongest cross-source signal, so weight
+    # them heavily relative to the (outlet-specific) summary text.
     articles = db.recent_articles(conn, settings.cluster_window_days)
-    articles = [a for a in articles if a.status == "enriched"] or articles
     if not articles:
         return 0
 
-    docs = [f"{a.title} {a.summary or a.raw_summary}" for a in articles]
+    docs = [f"{a.title} {a.title} {a.title} {a.summary or a.raw_summary}" for a in articles]
     vecs = _tfidf_vectors(docs)
     threshold = settings.cluster_threshold
 

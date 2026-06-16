@@ -9,3 +9,4 @@ data/
 .pytest_cache/
 .claude/
 .DS_Store
+*.log

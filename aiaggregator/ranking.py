@@ -17,6 +17,18 @@ from .models import Article
 # Source-type trust: first-party labs > major outlets > community aggregators.
 SOURCE_WEIGHT = {"lab": 1.0, "research": 0.9, "news": 0.75, "community": 0.5}
 
+# Signals that an item is a product / framework / agentic-architecture announcement.
+ANNOUNCE_TAGS = {
+    "product", "agents", "developer-tools", "open-source", "infrastructure",
+    "rag", "multimodal", "robotics",
+}
+ANNOUNCE_KEYWORDS = (
+    "launch", "introduc", "releas", "announc", "unveil", "now available",
+    "available now", "framework", "sdk", "toolkit", "platform", "agent",
+    "agentic", "open-source", "open source", "open-weight", "open weights",
+    "rolls out", "debut", "ships",
+)
+
 
 def _age_hours(ts: str | None, now: datetime) -> float | None:
     if not ts:
@@ -53,12 +65,28 @@ def source_score(category: str | None) -> float:
     return SOURCE_WEIGHT.get(category or "", 0.6)
 
 
+def announcement_score(article: Article) -> float:
+    """1.0 for clear product/framework/agentic announcements, else lower."""
+    score = 0.0
+    if set(article.tags) & ANNOUNCE_TAGS:
+        score += 0.6
+    title = (article.title or "").lower()
+    if any(k in title for k in ANNOUNCE_KEYWORDS):
+        score += 0.6
+    return min(1.0, score)
+
+
 def rank_score(article: Article, category: str | None, cluster_size: int | None,
                now: datetime | None = None) -> float:
     now = now or datetime.now(timezone.utc)
+    rec = recency_score(article, now)
+    ann = announcement_score(article)
     return (
         settings.rank_w_importance * importance_score(article)
-        + settings.rank_w_recency * recency_score(article, now)
+        + settings.rank_w_recency * rec
         + settings.rank_w_cluster * cluster_score(cluster_size)
         + settings.rank_w_source * source_score(category)
+        + settings.rank_w_announcement * ann
+        # extra kick for announcements that are ALSO fresh ("latest announcement")
+        + settings.rank_w_announcement * 0.5 * ann * rec
     )

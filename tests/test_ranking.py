@@ -30,6 +30,26 @@ def test_source_trust_orders_labs_above_community():
     assert ranking.rank_score(a, "lab", 1, now) > ranking.rank_score(a, "community", 1, now)
 
 
+def test_announcement_scoring():
+    launch = Article(source_id=1, guid="g", url="u", content_hash="h",
+                     title="OpenAI launches new agent framework", tags=["product"])
+    plain = Article(source_id=1, guid="g", url="u", content_hash="h",
+                    title="Quarterly market commentary", tags=["policy"])
+    assert ranking.announcement_score(launch) > ranking.announcement_score(plain)
+    assert ranking.announcement_score(plain) == 0.0
+
+
+def test_announcement_boosts_rank():
+    now = datetime.now(timezone.utc)
+    launch = Article(source_id=1, guid="g", url="u", content_hash="h",
+                     title="Anthropic releases new agentic SDK", tags=["product"],
+                     importance=50, published_at=now.isoformat(), fetched_at=now_iso())
+    plain = Article(source_id=1, guid="g", url="u", content_hash="h",
+                    title="Anthropic comments on the market", tags=["policy"],
+                    importance=50, published_at=now.isoformat(), fetched_at=now_iso())
+    assert ranking.rank_score(launch, "lab", 1, now) > ranking.rank_score(plain, "lab", 1, now)
+
+
 def test_high_importance_recent_clustered_beats_stale_solo():
     now = datetime.now(timezone.utc)
     big = _art(80, now.isoformat())

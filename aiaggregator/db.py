@@ -61,6 +61,26 @@ CREATE TABLE IF NOT EXISTS digests (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS visits (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts         TEXT NOT NULL,
+    ip         TEXT,
+    path       TEXT,
+    method     TEXT,
+    referer    TEXT,
+    user_agent TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_visits_ts ON visits(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_visits_ip ON visits(ip);
+
+CREATE TABLE IF NOT EXISTS ip_geo (
+    ip          TEXT PRIMARY KEY,
+    country     TEXT,
+    region      TEXT,
+    city        TEXT,
+    resolved_at TEXT
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
     title, summary, tags, content='articles', content_rowid='id'
 );
@@ -219,6 +239,40 @@ def top_enriched(conn: sqlite3.Connection, days: int, limit: int) -> list[Articl
 
 def cluster_sizes(conn: sqlite3.Connection) -> dict[int, int]:
     return {r["id"]: r["size"] for r in conn.execute("SELECT id, size FROM clusters")}
+
+
+# ----- analytics / visits ----------------------------------------------------
+
+def record_visit(conn: sqlite3.Connection, *, ip: str | None, path: str,
+                 method: str, referer: str | None, user_agent: str | None) -> None:
+    conn.execute(
+        """INSERT INTO visits (ts, ip, path, method, referer, user_agent)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (now_iso(), ip, path, method, referer, user_agent),
+    )
+    conn.commit()
+
+
+def unresolved_ips(conn: sqlite3.Connection, limit: int = 50) -> list[str]:
+    rows = conn.execute(
+        """SELECT DISTINCT v.ip FROM visits v
+           LEFT JOIN ip_geo g ON g.ip = v.ip
+           WHERE v.ip IS NOT NULL AND g.ip IS NULL
+           LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    return [r["ip"] for r in rows]
+
+
+def save_geo(conn: sqlite3.Connection, ip: str, country: str, region: str, city: str) -> None:
+    conn.execute(
+        """INSERT INTO ip_geo (ip, country, region, city, resolved_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(ip) DO UPDATE SET country=excluded.country,
+               region=excluded.region, city=excluded.city, resolved_at=excluded.resolved_at""",
+        (ip, country, region, city, now_iso()),
+    )
+    conn.commit()
 
 
 def recent_articles(conn: sqlite3.Connection, days: int) -> list[Article]:

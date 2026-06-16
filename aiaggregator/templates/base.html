@@ -4,6 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}AI Aggregator — AI &amp; Agentic-AI News{% endblock %}</title>
+
+  {# Absolute base for link-preview (Open Graph) URLs: configured public_url, else request host #}
+  {% set base = public_url if public_url else (request.base_url|string).rstrip('/') %}
+  {% set og_title = self.title() %}
+  {% set og_desc = "AI & Agentic-AI news, aggregated from public RSS feeds and summarized locally — labs, research, and major tech outlets, ranked and clustered." %}
+  <meta name="description" content="{{ og_desc }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AI Aggregator">
+  <meta property="og:title" content="{{ og_title }}">
+  <meta property="og:description" content="{{ og_desc }}">
+  <meta property="og:url" content="{{ base }}{{ request.url.path }}">
+  <meta property="og:image" content="{{ base }}/static/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ og_title }}">
+  <meta name="twitter:description" content="{{ og_desc }}">
+  <meta name="twitter:image" content="{{ base }}/static/og.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>

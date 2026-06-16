@@ -122,16 +122,12 @@ def group_clusters(articles: list[Article]) -> list[dict]:
             continue
         g = groups.get(a.cluster_id)
         if g is None:
+            # first occurrence is the best-ranked variant (input is rank-sorted) -> lead
             g = {"lead": a, "extras": []}
             groups[a.cluster_id] = g
             out.append(g)
         else:
-            # keep highest-importance article as lead
-            if (a.importance or 0) > (g["lead"].importance or 0):
-                g["extras"].append(g["lead"])
-                g["lead"] = a
-            else:
-                g["extras"].append(a)
+            g["extras"].append(a)
     return out
 
 

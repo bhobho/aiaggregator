@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Insights{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-extrabold mb-1">Visitor Insights</h1>
+<p class="text-sm text-gray-500 mb-5">Last {{ a.days }} days · private/localhost IPs shown as “Local”.</p>
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+  {% for label, val in [('Page views', a.visits), ('Unique visitors', a.visitors),
+                        ('Countries', a.by_country|length), ('Cities', a.by_city|length)] %}
+  <div class="bg-white border border-gray-200 rounded-lg py-4 text-center">
+    <div class="text-2xl font-extrabold">{{ val }}</div>
+    <div class="text-xs text-gray-500 uppercase tracking-wide">{{ label }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <!-- By country -->
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <h3 class="font-bold px-4 py-2 border-b border-gray-200">By Country</h3>
+    <table class="w-full text-sm">
+      <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">Country</th><th>Visitors</th><th class="px-4">Views</th></tr></thead>
+      <tbody>
+        {% for r in a.by_country %}
+        <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.country }}</td><td>{{ r.visitors }}</td><td class="px-4">{{ r.hits }}</td></tr>
+        {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="3">No data yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- By city -->
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <h3 class="font-bold px-4 py-2 border-b border-gray-200">By City</h3>
+    <table class="w-full text-sm">
+      <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">City</th><th>Country</th><th class="px-4">Views</th></tr></thead>
+      <tbody>
+        {% for r in a.by_city %}
+        <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.city }}</td><td>{{ r.country }}</td><td class="px-4">{{ r.hits }}</td></tr>
+        {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="3">No city-level data yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Recent visits -->
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+  <h3 class="font-bold px-4 py-2 border-b border-gray-200">Recent Visits</h3>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-left text-gray-500 bg-gray-50">
+        <tr><th class="px-4 py-1.5">When</th><th>IP</th><th>Location</th><th>Page</th><th class="px-4">Browser</th></tr>
+      </thead>
+      <tbody>
+        {% for r in a.recent %}
+        <tr class="border-t border-gray-100">
+          <td class="px-4 py-1.5 whitespace-nowrap text-gray-500">{{ r.ts | timeago }}</td>
+          <td class="font-mono text-xs">{{ r.ip }}</td>
+          <td>{{ [r.city, r.region, r.country] | select | join(', ') }}</td>
+          <td class="text-gray-700">{{ r.path }}</td>
+          <td class="px-4 text-xs text-gray-400 max-w-xs truncate">{{ r.user_agent }}</td>
+        </tr>
+        {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="5">No visits recorded yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
