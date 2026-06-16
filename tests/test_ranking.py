@@ -50,6 +50,25 @@ def test_announcement_boosts_rank():
     assert ranking.rank_score(launch, "lab", 1, now) > ranking.rank_score(plain, "lab", 1, now)
 
 
+def test_priority_themes_score_higher():
+    on = Article(source_id=1, guid="g", url="u", content_hash="h",
+                 title="Anthropic releases new reasoning model with MCP support", tags=["llms"])
+    off = Article(source_id=1, guid="g", url="u", content_hash="h",
+                  title="AI company hosts annual charity gala", tags=["policy"])
+    assert ranking.priority_score(on) > ranking.priority_score(off)
+
+
+def test_priority_boosts_rank_over_offtopic():
+    now = datetime.now(timezone.utc)
+    on = Article(source_id=1, guid="g", url="u", content_hash="h",
+                 title="New open-source agent framework SDK released", tags=["agents", "product"],
+                 importance=50, published_at=now.isoformat(), fetched_at=now_iso())
+    off = Article(source_id=1, guid="g", url="u", content_hash="h",
+                  title="Tech executive gives commencement speech", tags=["policy"],
+                  importance=50, published_at=now.isoformat(), fetched_at=now_iso())
+    assert ranking.rank_score(on, "news", 1, now) > ranking.rank_score(off, "news", 1, now)
+
+
 def test_high_importance_recent_clustered_beats_stale_solo():
     now = datetime.now(timezone.utc)
     big = _art(80, now.isoformat())

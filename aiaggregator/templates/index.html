@@ -34,19 +34,6 @@
       <p class="text-sm text-gray-300 mt-1">The day's top stories, summarized locally.</p>
       <a href="/digest" class="inline-block mt-3 bg-accent text-white text-sm font-semibold px-3 py-1.5 rounded">Read digest →</a>
     </div>
-
-    <div class="bg-white border border-gray-200 rounded-lg p-5">
-      <h3 class="font-bold text-gray-900 mb-3">Coverage</h3>
-      <dl class="text-sm space-y-1.5 text-gray-600">
-        <div class="flex justify-between"><dt>Articles</dt><dd class="font-semibold text-gray-900">{{ stats.total }}</dd></div>
-        <div class="flex justify-between"><dt>Summarized</dt><dd class="font-semibold text-gray-900">{{ stats.enriched }}</dd></div>
-        <div class="flex justify-between"><dt>Story clusters</dt><dd class="font-semibold text-gray-900">{{ stats.clusters }}</dd></div>
-      </dl>
-      <form hx-post="/refresh" hx-target="#refresh-status" hx-swap="innerHTML" class="mt-4">
-        <button class="w-full bg-gray-900 hover:bg-gray-800 text-white rounded px-3 py-2 text-sm font-semibold">Refresh now</button>
-      </form>
-      <div id="refresh-status" class="mt-2"></div>
-    </div>
   </aside>
 </div>
 {% endblock %}

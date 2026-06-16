@@ -9,6 +9,7 @@ Each component is normalized to 0..1; weights come from settings and need not su
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from .config import settings
@@ -28,6 +29,28 @@ ANNOUNCE_KEYWORDS = (
     "agentic", "open-source", "open source", "open-weight", "open weights",
     "rolls out", "debut", "ships",
 )
+
+# Priority themes the user wants surfaced. Each theme is a regex (word-boundary aware)
+# matched against the title (strong) and summary/tags (weaker).
+_THEME_PATTERNS = {
+    "models": r"foundation model|frontier model|language model|\bllms?\b|multimodal|"
+              r"reasoning model|open[- ]weight|mixture[- ]of[- ]experts|\bmoe\b|"
+              r"\bgpt-?\d|\bclaude\b|\bgemini\b|\bllama\b|\bqwen\b|\bdeepseek\b|\bmistral\b|"
+              r"new .{0,14}model|model (family|release|launch)",
+    "agents": r"\bagent(s|ic)?\b|autonomous|multi[- ]agent|tool[- ]use|tool[- ]calling|computer use",
+    "inference": r"inference|\bserving\b|\bvllm\b|tensorrt|\bsglang\b|throughput|latency|"
+                 r"quantiz|kv[- ]cache|speculative decoding|tokens? per second",
+    "mcp": r"model context protocol|\bmcp\b",
+    "finetune_safety": r"fine[- ]?tun|\blora\b|\brlhf\b|\bdpo\b|alignment|evaluation|\beval(s|uations?)?\b|"
+                       r"benchmark|red[- ]team|guardrail|\bsafety\b|jailbreak|hallucinat",
+    "infra": r"infrastructure|deployment|\bdeploy\b|\bgpu(s)?\b|data ?center|\bcluster\b|"
+             r"kubernetes|serverless",
+    "frameworks": r"framework|\bsdk\b|\bapis?\b|\blibrary\b|toolkit|open[- ]source|"
+                  r"\bv\d+(\.\d+)?\b|major (release|version|upgrade)|\bupgrade\b",
+    "devtools": r"coding assistant|code assistant|copilot|\bide\b|ci/cd|\bdevops\b|"
+                r"platform engineering|automation|\bpipeline\b|orchestrat|developer (tool|platform)",
+}
+_THEME_RES = {name: re.compile(pat, re.I) for name, pat in _THEME_PATTERNS.items()}
 
 
 def _age_hours(ts: str | None, now: datetime) -> float | None:
@@ -76,17 +99,31 @@ def announcement_score(article: Article) -> float:
     return min(1.0, score)
 
 
+def priority_score(article: Article) -> float:
+    """How well the item matches the prioritized themes (new models, agents,
+    inference/serving, MCP, fine-tuning/alignment/eval/safety, AI infra, and
+    dev frameworks/SDKs/open-source/coding/DevOps). Title hits count most."""
+    title = (article.title or "")
+    body = (article.summary or article.raw_summary or "") + " " + " ".join(article.tags)
+    title_hits = sum(1 for rx in _THEME_RES.values() if rx.search(title))
+    body_hits = sum(1 for rx in _THEME_RES.values() if rx.search(body))
+    return min(1.0, 0.5 * title_hits + 0.2 * body_hits)
+
+
 def rank_score(article: Article, category: str | None, cluster_size: int | None,
                now: datetime | None = None) -> float:
     now = now or datetime.now(timezone.utc)
     rec = recency_score(article, now)
     ann = announcement_score(article)
+    prio = priority_score(article)
     return (
         settings.rank_w_importance * importance_score(article)
         + settings.rank_w_recency * rec
+        + settings.rank_w_priority * prio
         + settings.rank_w_cluster * cluster_score(cluster_size)
         + settings.rank_w_source * source_score(category)
         + settings.rank_w_announcement * ann
-        # extra kick for announcements that are ALSO fresh ("latest announcement")
+        # extra kick for on-theme / announcement items that are ALSO fresh ("latest")
+        + settings.rank_w_priority * 0.5 * prio * rec
         + settings.rank_w_announcement * 0.5 * ann * rec
     )

@@ -48,11 +48,12 @@ class Settings(BaseSettings):
     cluster_threshold: float = 0.42  # cosine similarity to merge near-duplicate stories
 
     # Composite ranking (weights need not sum to 1; relative scale matters)
-    rank_w_importance: float = 0.40     # LLM-assigned significance
+    rank_w_importance: float = 0.35     # LLM-assigned significance
     rank_w_recency: float = 0.30        # how fresh
+    rank_w_priority: float = 0.55       # match to prioritized themes (models/agents/infra/tools)
     rank_w_cluster: float = 0.15        # how many sources cover the story
     rank_w_source: float = 0.10         # source-type trust
-    rank_w_announcement: float = 0.40   # product / framework / agentic announcement
+    rank_w_announcement: float = 0.25   # generic launch/release cue
     rank_recency_halflife_hours: float = 30.0
 
 

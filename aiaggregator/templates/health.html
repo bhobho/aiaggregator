@@ -3,8 +3,14 @@
 {% block content %}
 <div class="flex items-center gap-3 mb-5">
   <h1 class="text-2xl font-extrabold">Sources &amp; Health</h1>
-  <form hx-post="/refresh" hx-target="#refresh-status" hx-swap="innerHTML" class="ml-auto">
-    <button class="bg-gray-900 hover:bg-gray-800 text-white rounded px-3 py-1.5 text-sm font-semibold">Refresh now</button>
+  <form hx-post="/refresh" hx-target="#refresh-status" hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        hx-on::after-request="setTimeout(function(){location.reload()}, 900)"
+        class="ml-auto">
+    <button class="bg-gray-900 hover:bg-gray-800 disabled:opacity-60 disabled:cursor-wait text-white rounded px-3 py-1.5 text-sm font-semibold">
+      <span class="hx-idle">Refresh now</span>
+      <span class="hx-busy">Refreshing…</span>
+    </button>
   </form>
 </div>
 <div id="refresh-status" class="mb-4"></div>
@@ -31,8 +37,8 @@
   {% endif %}
 </div>
 
-<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-  <table class="w-full text-sm">
+<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+  <table class="w-full min-w-[640px] text-sm">
     <thead class="text-left text-gray-500 bg-gray-50 border-b border-gray-200">
       <tr><th class="py-2 px-4">Source</th><th>Category</th><th>Items</th><th>Last fetch</th><th class="px-4">Status</th></tr>
     </thead>

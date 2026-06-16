@@ -16,9 +16,9 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
   <!-- By country -->
-  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <h3 class="font-bold px-4 py-2 border-b border-gray-200">By Country</h3>
-    <table class="w-full text-sm">
+    <table class="w-full min-w-[360px] text-sm">
       <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">Country</th><th>Visitors</th><th class="px-4">Views</th></tr></thead>
       <tbody>
         {% for r in a.by_country %}
@@ -29,9 +29,9 @@
   </div>
 
   <!-- By city -->
-  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
     <h3 class="font-bold px-4 py-2 border-b border-gray-200">By City</h3>
-    <table class="w-full text-sm">
+    <table class="w-full min-w-[360px] text-sm">
       <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">City</th><th>Country</th><th class="px-4">Views</th></tr></thead>
       <tbody>
         {% for r in a.by_city %}
@@ -46,7 +46,7 @@
 <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
   <h3 class="font-bold px-4 py-2 border-b border-gray-200">Recent Visits</h3>
   <div class="overflow-x-auto">
-    <table class="w-full text-sm">
+    <table class="w-full min-w-[680px] text-sm">
       <thead class="text-left text-gray-500 bg-gray-50">
         <tr><th class="px-4 py-1.5">When</th><th>IP</th><th>Location</th><th>Page</th><th class="px-4">Browser</th></tr>
       </thead>
