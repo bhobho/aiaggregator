@@ -36,6 +36,24 @@ On first launch it creates the SQLite DB, loads `feeds.yaml`, and fetches once. 
 **Refresh now** button on `/health` (or `POST /refresh`) to fetch on demand. A background
 scheduler then fetches/enriches periodically and builds a daily digest.
 
+## Run with Docker
+
+```sh
+docker compose up --build      # serves http://localhost:9000
+```
+
+The compose stack runs the FastAPI app on port 9000, persists the SQLite DB in a named
+volume (`aiagg-data`), and mounts `feeds.yaml` read-only so you can edit sources without
+rebuilding. Ollama is expected on the **host**: the container reaches it via
+`http://host.docker.internal:11434` by default (works on Docker Desktop and, via the
+`host-gateway` mapping, on Linux). Point at a remote Ollama with:
+
+```sh
+AIAGG_OLLAMA_HOST=http://my-ollama:11434 docker compose up
+```
+
+Any other `AIAGG_*` overrides in a local `.env` are picked up automatically.
+
 ## Configuration
 
 Copy `.env.example` to `.env` to override defaults (Ollama host, model, DB path, refresh

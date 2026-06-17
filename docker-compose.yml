@@ -1,0 +1,28 @@
+services:
+  aiaggregator:
+    build: .
+    image: aiaggregator:latest
+    container_name: aiaggregator
+    ports:
+      - "9000:9000"
+    environment:
+      # Reach an Ollama running on the host (override with a URL to a remote one).
+      AIAGG_OLLAMA_HOST: ${AIAGG_OLLAMA_HOST:-http://host.docker.internal:11434}
+      AIAGG_DB_PATH: /app/data/aiaggregator.db
+    # Pull any other AIAGG_* overrides (analytics token, intervals, public_url…)
+    # from a local .env if present.
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # Persist the SQLite database across container restarts.
+      - aiagg-data:/app/data
+      # Edit feeds without rebuilding the image.
+      - ./feeds.yaml:/app/feeds.yaml:ro
+    # Lets host.docker.internal resolve to the host on Linux (no-op on Docker Desktop).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  aiagg-data:
