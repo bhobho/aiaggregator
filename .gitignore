@@ -10,3 +10,4 @@ data/
 .claude/
 .DS_Store
 *.log
+nohup.out
