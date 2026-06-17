@@ -43,6 +43,31 @@ sources:
     category: lab
     company: Hugging Face
 
+  # ---- Models / topics via Google News (free, no key) ----
+  - name: Google Gemini
+    url: https://news.google.com/rss/search?q=%22Google+Gemini%22+OR+%22Gemini+model%22+OR+%22Gemini+2%22&hl=en-US&gl=US&ceid=US:en
+    category: lab
+    company: Google
+  - name: NVIDIA AI News
+    url: https://news.google.com/rss/search?q=NVIDIA+AI+OR+%22NVIDIA+GPU%22+AI&hl=en-US&gl=US&ceid=US:en
+    category: news
+    company: Nvidia
+  - name: Small Language Models (SLMs)
+    url: https://news.google.com/rss/search?q=%22small+language+model%22+OR+%22small+language+models%22&hl=en-US&gl=US&ceid=US:en
+    category: research
+  - name: DeepSeek
+    url: https://news.google.com/rss/search?q=DeepSeek+AI&hl=en-US&gl=US&ceid=US:en
+    category: lab
+    company: DeepSeek
+  - name: Kimi / Moonshot AI
+    url: https://news.google.com/rss/search?q=%22Kimi+AI%22+OR+%22Moonshot+AI%22&hl=en-US&gl=US&ceid=US:en
+    category: lab
+    company: Moonshot
+  - name: Perplexity
+    url: https://news.google.com/rss/search?q=%22Perplexity+AI%22+-crypto+-price+-coin+-solana+-bitcoin+-prediction&hl=en-US&gl=US&ceid=US:en
+    category: lab
+    company: Perplexity
+
   # ---- Tech news ----
   - name: TechCrunch AI
     url: https://techcrunch.com/category/artificial-intelligence/feed/

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from . import db, ranking
+from . import db, ranking, vendors as vendormod
 from .models import Article
 
 
@@ -54,15 +54,17 @@ def feed(conn: sqlite3.Connection, f: FeedFilters) -> list[Article]:
     where_sql = " AND ".join(where)
 
     if f.sort == "importance":
-        # Fetch a candidate pool by raw importance, then re-rank by composite score.
+        # Rank the whole (filtered) set by composite score in Python — the corpus is
+        # small (~hundreds), so no candidate pre-filter. Pooling by importance OR
+        # recency alone would drop relevant items (fresh-but-modest, or old-but-major)
+        # before the composite ranking could weigh them fairly.
         sql = f"""
             SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
             WHERE {where_sql}
-            ORDER BY COALESCE(a.importance, 0) DESC,
-                     COALESCE(a.published_at, a.fetched_at) DESC
+            ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
             LIMIT ?
         """
-        params.append(max(f.limit * 4, 200))
+        params.append(5000)
         rows = conn.execute(sql, params).fetchall()
         ranked = rank_articles(conn, [Article.from_row(r) for r in rows])
         return ranked[: f.limit]
@@ -112,6 +114,68 @@ def source_name_map(conn: sqlite3.Connection) -> dict[int, tuple[str, str]]:
     }
 
 
+def source_company_map(conn: sqlite3.Connection) -> dict[int, str | None]:
+    return {r["id"]: r["company"] for r in conn.execute("SELECT id, company FROM sources")}
+
+
+def _all_active(conn: sqlite3.Connection) -> list[Article]:
+    rows = conn.execute(
+        """SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
+           WHERE s.active = 1
+           ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT 5000"""
+    ).fetchall()
+    return [Article.from_row(r) for r in rows]
+
+
+def vendor_tiles(conn: sqlite3.Connection, top: int = 2) -> list[dict]:
+    """One bucket per curated vendor: count, today-count, and top-ranked headlines."""
+    articles = _all_active(conn)
+    companies = source_company_map(conn)
+    today = date.today().isoformat()
+
+    buckets: dict[str, list[Article]] = {v.slug: [] for v in vendormod.VENDORS}
+    for a in articles:
+        for v in vendormod.vendors_for(a, companies.get(a.source_id)):
+            buckets[v.slug].append(a)
+
+    tiles = []
+    for v in vendormod.VENDORS:
+        arts = buckets[v.slug]
+        if not arts:
+            continue
+        ranked = rank_articles(conn, arts)
+        # de-dupe tile previews: one entry per story cluster (or title for singletons)
+        seen: set = set()
+        top_list: list[Article] = []
+        for a in ranked:
+            key = ("c", a.cluster_id) if a.cluster_id is not None else ("t", (a.title or "").lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            top_list.append(a)
+            if len(top_list) >= top:
+                break
+        today_n = sum(1 for a in arts if (a.published_at or a.fetched_at or "")[:10] == today)
+        tiles.append({
+            "vendor": v,
+            "count": len(arts),
+            "today": today_n,
+            "top": top_list,
+        })
+    tiles.sort(key=lambda t: (t["today"], t["count"]), reverse=True)
+    return tiles
+
+
+def vendor_feed(conn: sqlite3.Connection, slug: str, limit: int = 80) -> list[Article]:
+    v = vendormod.BY_SLUG.get(slug)
+    if v is None:
+        return []
+    companies = source_company_map(conn)
+    arts = [a for a in _all_active(conn)
+            if any(vv.slug == slug for vv in vendormod.vendors_for(a, companies.get(a.source_id)))]
+    return rank_articles(conn, arts)[:limit]
+
+
 def group_clusters(articles: list[Article]) -> list[dict]:
     """Collapse clustered articles: lead article + extras. Singletons pass through."""
     groups: dict[int, dict] = {}
@@ -137,9 +201,8 @@ def top_headlines(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
     rows = conn.execute(
         """SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
            WHERE s.active = 1 AND a.status = 'enriched'
-           ORDER BY COALESCE(a.importance, 0) DESC, COALESCE(a.published_at, a.fetched_at) DESC
-           LIMIT ?""",
-        (limit * 4,),
+           ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
+           LIMIT 5000""",
     ).fetchall()
     arts = rank_articles(conn, [Article.from_row(r) for r in rows])[:limit]
     if len(arts) < limit:

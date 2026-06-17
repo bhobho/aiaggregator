@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from .. import db, queries
+from .. import db, queries, vendors as vendormod
 from ..enrich import digest as digest_mod
 
 router = APIRouter()
@@ -74,6 +74,40 @@ async def feed_partial(
     ctx = _feed_context(request, f)
     templates = request.app.state.templates
     return templates.TemplateResponse(request, "_list.html", ctx)
+
+
+@router.get("/enterprises", response_class=HTMLResponse)
+async def vendors_view(request: Request):
+    conn = db.connect()
+    try:
+        tiles = queries.vendor_tiles(conn)
+        srcmap = queries.source_name_map(conn)
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request, "vendors.html", {"tiles": tiles, "srcmap": srcmap}
+    )
+
+
+@router.get("/enterprise/{slug}", response_class=HTMLResponse)
+async def vendor_view(request: Request, slug: str):
+    vendor = vendormod.BY_SLUG.get(slug)
+    conn = db.connect()
+    try:
+        if vendor is None:
+            articles = []
+        else:
+            articles = queries.vendor_feed(conn, slug)
+        groups = queries.group_clusters(articles)
+        srcmap = queries.source_name_map(conn)
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request, "vendor.html",
+        {"vendor": vendor, "groups": groups, "srcmap": srcmap, "count": len(articles)},
+    )
 
 
 @router.get("/digest", response_class=HTMLResponse)

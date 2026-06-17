@@ -20,7 +20,8 @@ TAG_VOCAB = [
 KNOWN_COMPANIES = [
     "OpenAI", "Anthropic", "Google DeepMind", "Google", "Meta", "Microsoft",
     "AWS", "Amazon", "Nvidia", "Hugging Face", "Mistral", "Cohere", "xAI",
-    "Apple", "IBM", "Stability AI",
+    "Apple", "IBM", "Stability AI", "DeepSeek", "Perplexity", "Moonshot",
+    "Alibaba", "ByteDance",
 ]
 
 SYSTEM = (

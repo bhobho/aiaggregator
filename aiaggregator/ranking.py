@@ -34,8 +34,10 @@ ANNOUNCE_KEYWORDS = (
 # matched against the title (strong) and summary/tags (weaker).
 _THEME_PATTERNS = {
     "models": r"foundation model|frontier model|language model|\bllms?\b|multimodal|"
-              r"reasoning model|open[- ]weight|mixture[- ]of[- ]experts|\bmoe\b|"
+              r"reasoning model|small language model|\bslms?\b|open[- ]weight|"
+              r"mixture[- ]of[- ]experts|\bmoe\b|"
               r"\bgpt-?\d|\bclaude\b|\bgemini\b|\bllama\b|\bqwen\b|\bdeepseek\b|\bmistral\b|"
+              r"\bkimi\b|moonshot|perplexity|\bgrok\b|\bphi-?\d|\bnemotron\b|"
               r"new .{0,14}model|model (family|release|launch)",
     "agents": r"\bagent(s|ic)?\b|autonomous|multi[- ]agent|tool[- ]use|tool[- ]calling|computer use",
     "inference": r"inference|\bserving\b|\bvllm\b|tensorrt|\bsglang\b|throughput|latency|"
