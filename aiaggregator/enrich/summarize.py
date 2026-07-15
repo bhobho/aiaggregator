@@ -96,6 +96,50 @@ async def enrich_article(conn: sqlite3.Connection, article: Article) -> bool:
     return True
 
 
+DETAIL_SYSTEM = (
+    "You are a precise tech-news writer. Respond ONLY with a compact JSON object."
+)
+
+DETAIL_PROMPT_TMPL = """Write a self-contained summary of this news item in 60-120 words.
+The summary MUST be at least 50 words. Cover what happened, who is involved, and why it
+matters. Neutral, factual, plain prose — no hype, no markdown. If the source material is
+thin, add brief, widely-known background about the companies or topic involved to provide
+context — but do not invent specifics about this news item itself.
+
+Title: {title}
+Short summary: {summary}
+Source text: {raw}
+
+Return JSON with EXACTLY one key: "summary".
+"""
+
+DETAIL_MIN_WORDS = 50
+
+
+async def detail_summary(title: str, summary: str | None, raw: str) -> str | None:
+    """Generate a 50-120 word reader summary, or None if Ollama is unavailable.
+    Retries once with a stronger nudge if the model comes back too short."""
+    prompt = DETAIL_PROMPT_TMPL.format(
+        title=title,
+        summary=summary or "(none)",
+        raw=raw[:1200] or "(none)",
+    )
+    text = ""
+    for _ in range(2):
+        try:
+            data = await ollama_client.generate_json(prompt, system=DETAIL_SYSTEM)
+        except ollama_client.OllamaError:
+            return None
+        text = str(data.get("summary", "")).strip()
+        if len(text.split()) >= DETAIL_MIN_WORDS:
+            return text
+        prompt += (
+            "\nYour previous answer was too short. Write AT LEAST 60 words, adding "
+            "relevant background context about the companies or topic."
+        )
+    return text or None
+
+
 async def run_enrichment(conn: sqlite3.Connection, limit: int) -> int:
     """Enrich up to `limit` pending articles. Returns count enriched."""
     if not await ollama_client.is_available():

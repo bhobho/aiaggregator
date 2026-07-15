@@ -13,7 +13,6 @@ FastAPI/HTMX dashboard.
 - Local LLM enrichment (default `qwen2.5:7b`): one-line summary, company/topic tags, and an
   importance score per article.
 - Cross-source clustering: the same story from multiple outlets is grouped.
-- Daily markdown digest of the top stories.
 - Filter by company/category/time/importance, full-text search (SQLite FTS5), and a health
   view with a manual refresh button.
 
@@ -34,7 +33,7 @@ uv sync
 
 On first launch it creates the SQLite DB, loads `feeds.yaml`, and fetches once. Use the
 **Refresh now** button on `/health` (or `POST /refresh`) to fetch on demand. A background
-scheduler then fetches/enriches periodically and builds a daily digest.
+scheduler then fetches/enriches periodically.
 
 ## Run with Docker
 

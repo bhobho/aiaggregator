@@ -25,7 +25,6 @@ class Settings(BaseSettings):
     fetch_interval: int = 1800   # fetch feeds every 30 min
     enrich_interval: int = 60    # drain enrichment queue every 60 s
     enrich_batch: int = 8        # articles per enrichment pass
-    digest_hour: int = 7         # build daily digest at 07:00 local
 
     # Public base URL (e.g. https://news.example.com) used to build absolute
     # Open Graph URLs for link previews. Leave empty to derive from the request.

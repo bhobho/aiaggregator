@@ -13,9 +13,8 @@ from fastapi.templating import Jinja2Templates
 
 from . import analytics, db
 from .config import settings
-from .enrich import cluster, digest, summarize
+from .enrich import cluster, summarize
 from .ingest import pipeline
-from .markdown import md_to_html
 from .routes import admin, dashboard
 from .timefmt import timeago
 
@@ -25,7 +24,6 @@ log = logging.getLogger("aiaggregator")
 
 BASE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
-templates.env.filters["markdown"] = md_to_html
 templates.env.filters["timeago"] = timeago
 templates.env.globals["public_url"] = settings.public_url.rstrip("/")
 
@@ -50,15 +48,6 @@ async def _job_enrich() -> None:
         conn.close()
 
 
-async def _job_digest() -> None:
-    conn = db.connect()
-    try:
-        cluster.recluster(conn)
-        digest.save_digest(conn)
-    finally:
-        conn.close()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     conn = db.connect()
@@ -70,7 +59,6 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_job_fetch, "interval", seconds=settings.fetch_interval,
                       id="fetch", next_run_time=None)
     scheduler.add_job(_job_enrich, "interval", seconds=settings.enrich_interval, id="enrich")
-    scheduler.add_job(_job_digest, "cron", hour=settings.digest_hour, id="digest")
     scheduler.start()
     app.state.scheduler = scheduler
 
@@ -88,7 +76,7 @@ app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 
 # share templates + job callables with routers
 app.state.templates = templates
-app.state.jobs = {"fetch": _job_fetch, "enrich": _job_enrich, "digest": _job_digest}
+app.state.jobs = {"fetch": _job_fetch, "enrich": _job_enrich}
 
 app.include_router(dashboard.router)
 app.include_router(admin.router)

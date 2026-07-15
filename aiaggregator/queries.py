@@ -5,7 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
-from . import db, ranking, vendors as vendormod
+from . import db, market as marketmod, ranking, vendors as vendormod
 from .models import Article
 
 
@@ -13,6 +13,7 @@ from .models import Article
 class FeedFilters:
     company: str | None = None
     category: str | None = None
+    exclude_category: str | None = None  # drop sources of this category
     days: int | None = None         # time window
     min_importance: int | None = None
     search: str | None = None
@@ -41,6 +42,9 @@ def feed(conn: sqlite3.Connection, f: FeedFilters) -> list[Article]:
     if f.category:
         where.append("s.category = ?")
         params.append(f.category)
+    if f.exclude_category:
+        where.append("s.category != ?")
+        params.append(f.exclude_category)
     if f.company:
         where.append("(s.company = ? OR a.companies LIKE ?)")
         params.extend([f.company, f'%"{f.company}"%'])
@@ -174,6 +178,35 @@ def vendor_feed(conn: sqlite3.Connection, slug: str, limit: int = 80) -> list[Ar
     arts = [a for a in _all_active(conn)
             if any(vv.slug == slug for vv in vendormod.vendors_for(a, companies.get(a.source_id)))]
     return rank_articles(conn, arts)[:limit]
+
+
+def dedupe_stories(articles: list[Article]) -> list[Article]:
+    """Drop exact duplicates of the same story pulled in via different feeds:
+    same URL or same normalized title. Keeps the first (best-ranked) copy;
+    near-duplicates with different titles are still collapsed by clustering."""
+    seen: set = set()
+    out: list[Article] = []
+    for a in articles:
+        keys = {("u", a.url), ("t", (a.title or "").strip().lower())}
+        if keys & seen:
+            continue
+        seen |= keys
+        out.append(a)
+    return out
+
+
+def market_feed(conn: sqlite3.Connection, slug: str, limit: int = 80) -> list[Article]:
+    """Ranked, de-duplicated stories for one market category."""
+    c = marketmod.BY_SLUG.get(slug)
+    if c is None:
+        return []
+    srcmap = source_name_map(conn)
+    arts = [
+        a for a in _all_active(conn)
+        if any(cc.slug == slug
+               for cc in marketmod.categories_for(a, srcmap.get(a.source_id, ("", ""))[0]))
+    ]
+    return dedupe_stories(rank_articles(conn, arts))[:limit]
 
 
 def group_clusters(articles: list[Article]) -> list[dict]:

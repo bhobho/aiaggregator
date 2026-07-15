@@ -1,4 +1,4 @@
-"""Admin/health routes: source status, manual refresh, digest rebuild."""
+"""Admin/health routes: source status and manual refresh."""
 from __future__ import annotations
 
 import asyncio

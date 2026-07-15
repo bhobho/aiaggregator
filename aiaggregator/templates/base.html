@@ -25,11 +25,40 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
   <style>
-    :root { --accent:#00a562; }   /* TechCrunch-style green */
-    body { background:#f4f5f7; color:#111827; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    /* Editorial theme: warm paper background, deep-red accent, serif display type */
+    :root { --accent:#a31621; }
+    body { background:#faf7f0; color:#191919; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
     .accent { color: var(--accent); }
     .bg-accent { background: var(--accent); }
+    .bg-white { background:#fffdf7 !important; }
+    article, aside > div, .rounded-lg { border-color:#e6dfd0 !important; border-radius:2px !important; }
+    header { border-bottom:3px double #191919 !important; }
+    h1, h2, h3, article a.font-bold, aside li a { font-family:"Playfair Display", Georgia, serif; letter-spacing:-0.01em; }
+    article p { font-family:"Source Serif 4", Georgia, serif; }
+    /* Banner: fixed background so the image stays frozen while content scrolls over it.
+       (A CSS filter would break background-attachment:fixed, so tinting is done with a
+       gradient overlay instead of grayscale.) */
+    .banner-hero {
+      background-image: url('/static/banner-editorial.jpg');
+      background-size: cover;
+      background-position: center top;
+      background-attachment: fixed;
+    }
+    nav a.nav-active { color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
+    /* Nasdaq AI stock tape: ink-black strip, seamless marquee (content rendered twice) */
+    #ticker-bar { background:#191919; display:none; }
+    .ticker-track { display:inline-flex; white-space:nowrap; animation:ticker-scroll 55s linear infinite; }
+    .ticker-track:hover { animation-play-state:paused; }
+    @keyframes ticker-scroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+    .ticker-item { display:inline-flex; align-items:baseline; gap:.4rem; padding:.35rem 1.1rem; font-size:.75rem; }
+    .ticker-item .sym { color:#faf7f0; font-weight:700; letter-spacing:.04em; }
+    .ticker-item .px { color:#c9c2b4; font-variant-numeric:tabular-nums; }
+    .ticker-item .up { color:#7fbf8e; font-variant-numeric:tabular-nums; }
+    .ticker-item .down { color:#e08a8a; font-variant-numeric:tabular-nums; }
     .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     .line-clamp-3 { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
     [x-cloak]{ display:none !important; }
@@ -42,13 +71,11 @@
 <body class="min-h-screen">
   <!-- Top banner (aligned to page width) -->
   <div class="max-w-7xl mx-auto px-4 pt-4">
-    <img src="/static/banner.jpg" alt=""
-         class="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200"
-         onerror="this.style.display='none'">
+    <div class="banner-hero w-full h-20 sm:h-28 rounded-lg border border-gray-200"></div>
   </div>
 
   <!-- Masthead -->
-  <header class="bg-white border-b-2 border-gray-900">
+  <header class="bg-white border-b-2 border-gray-900 sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center gap-x-4 gap-y-2">
       <a href="/" class="flex items-center gap-2 sm:gap-3 min-w-0">
         <img src="/static/avatar.jpg" alt=""
@@ -58,14 +85,36 @@
           <span class="text-xl sm:text-2xl font-extrabold tracking-tight">AI</span><span class="text-xl sm:text-2xl font-extrabold tracking-tight accent">Aggregator</span>
         </span>
       </a>
+      {% set path = request.url.path %}
       <nav class="ml-auto flex items-center gap-3 sm:gap-4 text-sm font-semibold">
-        <a href="/" class="hover:accent">Home</a>
-        <a href="/enterprises" class="hover:accent">Enterprises</a>
-        <a href="/digest" class="hover:accent">Daily Digest</a>
-        <a href="/health" class="text-gray-500 hover:accent">Sources</a>
+        <a href="/" class="hover:accent {{ 'nav-active' if path == '/' }}">Home</a>
+        <a href="/market" class="hover:accent {{ 'nav-active' if path.startswith('/market') }}">AI News</a>
+        <a href="/tech" class="hover:accent {{ 'nav-active' if path == '/tech' }}">Tech News</a>
+        <a href="/health" class="text-gray-500 hover:accent {{ 'nav-active' if path == '/health' }}">Sources</a>
       </nav>
     </div>
   </header>
+
+  <!-- Nasdaq AI stock tape -->
+  <div id="ticker-bar" class="overflow-hidden">
+    <div class="ticker-track" id="ticker-track"></div>
+  </div>
+  <script>
+    fetch('/ticker').then(r => r.json()).then(quotes => {
+      if (!quotes || !quotes.length) return;
+      const html = quotes.map(q => {
+        const up = q.change_pct >= 0;
+        const arrow = up ? '▲' : '▼';
+        const cls = up ? 'up' : 'down';
+        return '<span class="ticker-item"><span class="sym">' + q.symbol + '</span>' +
+               '<span class="px">' + q.price.toFixed(2) + '</span>' +
+               '<span class="' + cls + '">' + arrow + ' ' + Math.abs(q.change_pct).toFixed(2) + '%</span></span>';
+      }).join('');
+      const track = document.getElementById('ticker-track');
+      track.innerHTML = html + html;  // duplicated for a seamless loop
+      document.getElementById('ticker-bar').style.display = 'block';
+    }).catch(() => {});
+  </script>
 
   <main class="max-w-7xl mx-auto px-4 py-6">
     {% block content %}{% endblock %}
@@ -74,5 +123,72 @@
   <footer class="max-w-7xl mx-auto px-4 py-8 text-xs text-gray-400 border-t border-gray-200 mt-8">
     AI Aggregator — aggregated from public RSS feeds, enriched locally with Ollama. No paid APIs.
   </footer>
+
+  <!-- In-page article reader: cards dispatch 'open-article' with the story payload -->
+  <script>
+    function openArticle(p){ window.dispatchEvent(new CustomEvent('open-article', {detail: p})); return false; }
+  </script>
+  <div x-data="{ show:false, a:{}, detail:'', loading:false,
+                 open(p){ this.a = p; this.show = true; this.detail = ''; this.loading = !!p.id;
+                   if (p.id) fetch('/article/' + p.id + '/summary')
+                     .then(r => r.json())
+                     .then(d => { if (d.id === this.a.id) { this.detail = d.summary; this.loading = false } })
+                     .catch(() => { this.loading = false }) } }"
+       @open-article.window="open($event.detail)"
+       @keydown.escape.window="show = false"
+       x-show="show" x-cloak
+       class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
+    <div class="absolute inset-0 bg-black/50" @click="show = false"></div>
+    <div class="relative bg-white w-full sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-xl shadow-2xl p-6"
+         x-transition.opacity>
+      <button type="button" @click="show = false" aria-label="Close"
+              class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-xl leading-none">&times;</button>
+
+      <div class="flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold pr-8">
+        <span class="accent" x-text="a.label"></span>
+        <template x-if="(a.importance||0) >= 70">
+          <span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>
+        </template>
+        <span class="text-gray-400 font-normal normal-case" x-text="a.time"></span>
+      </div>
+
+      <h2 class="mt-2 text-xl sm:text-2xl font-extrabold leading-snug" x-text="a.title"></h2>
+      <p class="mt-3 text-sm sm:text-base text-gray-700 leading-relaxed" x-text="detail || a.summary"></p>
+      <div x-show="loading" class="mt-2 flex items-center gap-2 text-xs text-gray-400 italic">
+        <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+        </svg>
+        Expanding summary…
+      </div>
+
+      <div class="mt-3 flex flex-wrap gap-1.5" x-show="(a.tags||[]).length">
+        <template x-for="t in (a.tags||[])">
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600" x-text="t"></span>
+        </template>
+      </div>
+
+      <template x-if="(a.extras||[]).length">
+        <div class="mt-4 border-t border-gray-100 pt-3">
+          <div class="text-xs font-semibold text-gray-500 mb-2"
+               x-text="'Also reported by ' + a.extras.length + ' other source' + (a.extras.length > 1 ? 's' : '')"></div>
+          <ul class="space-y-1.5">
+            <template x-for="e in a.extras">
+              <li class="text-sm">
+                <a :href="e.url" target="_blank" rel="noopener" class="text-gray-700 hover:accent" x-text="e.title"></a>
+                <span class="text-gray-400 text-xs" x-text="'· ' + e.source"></span>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+
+      <div class="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
+        <a :href="a.url" target="_blank" rel="noopener"
+           class="bg-accent text-white text-sm font-semibold px-4 py-2 rounded hover:opacity-90">Read full story ↗</a>
+        <span class="text-xs text-gray-400" x-text="a.source"></span>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

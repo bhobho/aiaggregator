@@ -1,11 +1,11 @@
-"""Dashboard routes: feed, filtered/searched partials, digest."""
+"""Dashboard routes: feed and filtered/searched partials."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from .. import db, queries, vendors as vendormod
-from ..enrich import digest as digest_mod
+from .. import db, market as marketmod, queries, ticker as tickermod, vendors as vendormod
+from ..enrich import summarize as summarize_mod
 
 router = APIRouter()
 
@@ -32,10 +32,12 @@ def _filters(company, category, days, min_importance, sort) -> queries.FeedFilte
     )
 
 
-def _feed_context(request: Request, f: queries.FeedFilters) -> dict:
+def _feed_context(request: Request, f: queries.FeedFilters, *,
+                  heading: str | None = None, sub: str | None = None,
+                  chips: list | None = None) -> dict:
     conn = db.connect()
     try:
-        articles = queries.feed(conn, f)
+        articles = queries.dedupe_stories(queries.feed(conn, f))
         groups = queries.group_clusters(articles)
         srcmap = queries.source_name_map(conn)
         return {
@@ -45,6 +47,9 @@ def _feed_context(request: Request, f: queries.FeedFilters) -> dict:
             "stats": queries.stats(conn),
             "top_headlines": queries.top_headlines(conn, limit=8),
             "filters": f,
+            "heading": heading,
+            "sub": sub,
+            "chips": chips,
         }
     finally:
         conn.close()
@@ -52,10 +57,22 @@ def _feed_context(request: Request, f: queries.FeedFilters) -> dict:
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    # Filters were removed from the UI; the homepage shows the composite-ranked feed
-    # (see ranking.py) so the most important stories lead.
+    # News Crunch: the composite-ranked feed (see ranking.py) across ALL sources —
+    # AI News (market) and Tech News alike — so the most important stories lead.
     f = queries.FeedFilters(sort="importance")
     ctx = _feed_context(request, f)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
+
+
+@router.get("/tech", response_class=HTMLResponse)
+async def tech_view(request: Request):
+    f = queries.FeedFilters(exclude_category="market", sort="importance")
+    ctx = _feed_context(
+        request, f,
+        heading="Tech News",
+        sub="labs, research & major tech outlets, ranked & de-duplicated",
+    )
     templates = request.app.state.templates
     return templates.TemplateResponse(request, "index.html", ctx)
 
@@ -110,16 +127,58 @@ async def vendor_view(request: Request, slug: str):
     )
 
 
-@router.get("/digest", response_class=HTMLResponse)
-async def digest_view(request: Request, date: str = ""):
+@router.get("/ticker")
+async def ticker_quotes():
+    """Quotes for the Nasdaq AI stock ticker bar (cached ~5 min)."""
+    return await tickermod.quotes()
+
+
+@router.get("/article/{article_id}/summary")
+async def article_summary(article_id: int):
+    """Reader-modal summary: return the cached ~50-120 word summary, generating
+    it via the local LLM on first request. Falls back to the stored short
+    summary / RSS text when Ollama is unavailable."""
     conn = db.connect()
     try:
-        current = digest_mod.get_digest(conn, date or None)
-        dates = digest_mod.list_digest_dates(conn)
+        row = db.get_article_row(conn, article_id)
+        if row is None:
+            return {"id": article_id, "summary": ""}
+        if row["detail_summary"]:
+            return {"id": article_id, "summary": row["detail_summary"]}
+        text = await summarize_mod.detail_summary(
+            row["title"], row["summary"], row["raw_summary"] or ""
+        )
+        if text:
+            db.save_detail_summary(conn, article_id, text)
+            return {"id": article_id, "summary": text}
+        fallback = row["summary"] or (row["raw_summary"] or "")[:400]
+        return {"id": article_id, "summary": fallback}
+    finally:
+        conn.close()
+
+
+@router.get("/market", response_class=HTMLResponse)
+async def market_view(request: Request):
+    # AI News: same layout as Home / Tech News, restricted to the market feeds
+    # (the business side of AI — no research/launch coverage).
+    f = queries.FeedFilters(category="market", sort="importance")
+    ctx = _feed_context(request, f)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
+
+
+@router.get("/market/{slug}", response_class=HTMLResponse)
+async def market_category_view(request: Request, slug: str):
+    cat = marketmod.BY_SLUG.get(slug)
+    conn = db.connect()
+    try:
+        articles = queries.market_feed(conn, slug) if cat else []
+        groups = queries.group_clusters(articles)
+        srcmap = queries.source_name_map(conn)
     finally:
         conn.close()
     templates = request.app.state.templates
     return templates.TemplateResponse(
-        request, "digest.html",
-        {"digest": current, "dates": dates},
+        request, "market_category.html",
+        {"cat": cat, "groups": groups, "srcmap": srcmap, "count": len(articles)},
     )

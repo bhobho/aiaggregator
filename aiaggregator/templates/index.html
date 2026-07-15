@@ -1,5 +1,25 @@
 {% extends "base.html" %}
+{% block title %}{{ heading ~ ' · AI Aggregator' if heading else 'AI Aggregator — AI & Agentic-AI News' }}{% endblock %}
 {% block content %}
+{% if heading %}
+<div class="flex items-center gap-3 mb-5">
+  <h1 class="text-xl font-extrabold">{{ heading }}</h1>
+  <span class="text-sm text-gray-500">{{ sub }}</span>
+</div>
+{% endif %}
+
+{% if chips %}
+<div class="flex flex-wrap gap-2 mb-6">
+  {% for c in chips %}
+  <a href="/market/{{ c.slug }}"
+     class="text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm transition"
+     style="color:{{ c.fg }};">
+    <span class="inline-block w-2 h-2 rounded-full mr-1" style="background:{{ c.fg }};"></span>{{ c.name }}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
 
   <!-- Main column -->
@@ -16,9 +36,23 @@
       <h3 class="text-lg font-extrabold border-b-2 border-gray-900 pb-2 mb-3">Top Headlines</h3>
       <ol class="space-y-4">
         {% for a in top_headlines %}
+        {% set hsrc = srcmap.get(a.source_id, ('Source','news')) %}
+        {% set hpayload = {
+          'id': a.id,
+          'title': a.title,
+          'url': a.url,
+          'label': (a.companies[0] if a.companies else hsrc[0]),
+          'source': hsrc[0],
+          'time': (a.published_at | timeago) or (a.fetched_at | timeago),
+          'summary': a.summary or a.raw_summary[:400],
+          'tags': a.tags,
+          'importance': a.importance or 0,
+          'extras': [],
+        } %}
         <li class="flex gap-3">
           <span class="text-2xl font-extrabold text-gray-300 leading-none w-7 shrink-0">{{ loop.index }}</span>
           <a href="{{ a.url }}" target="_blank" rel="noopener"
+             onclick='return openArticle({{ hpayload | tojson }})'
              class="text-sm font-semibold text-gray-900 hover:accent leading-snug line-clamp-3">{{ a.title }}</a>
         </li>
         {% endfor %}
@@ -26,13 +60,6 @@
         <li class="text-sm text-gray-400">No headlines yet — try Refresh now.</li>
         {% endif %}
       </ol>
-    </div>
-
-    <div class="bg-gray-900 text-white rounded-lg p-5">
-      <div class="text-xs uppercase tracking-wide text-gray-400">Today</div>
-      <h3 class="text-lg font-bold mt-1">Daily AI Digest</h3>
-      <p class="text-sm text-gray-300 mt-1">The day's top stories, summarized locally.</p>
-      <a href="/digest" class="inline-block mt-3 bg-accent text-white text-sm font-semibold px-3 py-1.5 rounded">Read digest →</a>
     </div>
   </aside>
 </div>

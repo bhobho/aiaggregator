@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS articles (
     content_hash TEXT NOT NULL,
     status       TEXT NOT NULL DEFAULT 'new',
     summary      TEXT,
+    detail_summary TEXT,
     tags         TEXT,
     companies    TEXT,
     importance   INTEGER,
@@ -52,13 +53,6 @@ CREATE TABLE IF NOT EXISTS clusters (
     top_article_id  INTEGER,
     size            INTEGER NOT NULL DEFAULT 1,
     created_at      TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS digests (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    date       TEXT NOT NULL UNIQUE,
-    markdown   TEXT NOT NULL,
-    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS visits (
@@ -114,6 +108,10 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
 
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    # additive migration for DBs created before detail_summary existed
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(articles)")}
+    if "detail_summary" not in cols:
+        conn.execute("ALTER TABLE articles ADD COLUMN detail_summary TEXT")
     conn.commit()
 
 
@@ -223,18 +221,13 @@ def set_cluster(conn: sqlite3.Connection, article_id: int, cluster_id: int) -> N
     conn.commit()
 
 
-def top_enriched(conn: sqlite3.Connection, days: int, limit: int) -> list[Article]:
-    """Top enriched articles ingested in the last `days`, by importance.
+def get_article_row(conn: sqlite3.Connection, article_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM articles WHERE id=?", (article_id,)).fetchone()
 
-    Uses fetched_at (when the item entered the system) rather than published_at,
-    so a blog post with an older publish date still surfaces in the day's digest."""
-    rows = conn.execute(
-        """SELECT * FROM articles
-           WHERE status='enriched' AND fetched_at >= datetime('now', ?)
-           ORDER BY importance DESC, fetched_at DESC LIMIT ?""",
-        (f"-{days} days", limit * 3),
-    ).fetchall()
-    return [Article.from_row(r) for r in rows]
+
+def save_detail_summary(conn: sqlite3.Connection, article_id: int, text: str) -> None:
+    conn.execute("UPDATE articles SET detail_summary=? WHERE id=?", (text, article_id))
+    conn.commit()
 
 
 def cluster_sizes(conn: sqlite3.Connection) -> dict[int, int]:

@@ -1,5 +1,5 @@
 # AI / Agentic-AI news sources (RSS/Atom only — no scraping).
-# category: lab | research | news | community
+# category: lab | research | news | market | community
 # A dead/unreachable feed is skipped gracefully and shown on /health.
 
 sources:
@@ -84,6 +84,34 @@ sources:
   - name: MIT Technology Review
     url: https://www.technologyreview.com/feed/
     category: news
+
+  # ---- Market News (Google News, free, no key) ----
+  # These names must match aiaggregator/market.py SOURCE_HINTS so items land in
+  # the right Market News bucket even before enrichment.
+  - name: AI Funding & Investment
+    url: https://news.google.com/rss/search?q=AI+startup+funding+OR+%22AI+investment%22+OR+%22AI+valuation%22+OR+%22AI+IPO%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Regulation & Policy
+    url: https://news.google.com/rss/search?q=%22AI+regulation%22+OR+%22AI+act%22+OR+%22AI+policy%22+OR+%22AI+antitrust%22+OR+%22AI+privacy+law%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Mergers & Acquisitions
+    url: https://news.google.com/rss/search?q=AI+acquisition+OR+%22AI+merger%22+OR+%22acquires+AI+startup%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Partnerships
+    url: https://news.google.com/rss/search?q=%22AI+partnership%22+OR+%22partners+with%22+AI+OR+%22AI+alliance%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Infrastructure
+    url: https://news.google.com/rss/search?q=%22AI+chips%22+OR+%22AI+data+center%22+OR+%22AI+datacenter%22+OR+%22AI+compute%22+OR+%22AI+cloud+infrastructure%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Enterprise Adoption
+    url: https://news.google.com/rss/search?q=%22enterprise+AI%22+OR+%22AI+adoption%22+OR+%22businesses+adopt+AI%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Security & Safety
+    url: https://news.google.com/rss/search?q=%22AI+security%22+OR+%22AI+safety%22+OR+%22AI+deepfake%22+OR+%22AI+cyberattack%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Startup News
+    url: https://news.google.com/rss/search?q=%22AI+startup%22+OR+%22AI+unicorn%22+OR+%22AI+founder%22&hl=en-US&gl=US&ceid=US:en
+    category: market
 
   # ---- Community ----
   - name: Hacker News Front Page

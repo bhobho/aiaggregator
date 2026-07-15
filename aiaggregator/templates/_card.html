@@ -6,6 +6,25 @@
 {% set featured = featured|default(false) %}
 {% set compact = compact|default(false) %}
 
+{# payload for the in-page reader modal (see base.html) #}
+{% set extras_payload = [] %}
+{% for e in g.extras %}
+  {% set _ = extras_payload.append({'title': e.title, 'url': e.url,
+                                    'source': srcmap.get(e.source_id, ('Source',''))[0]}) %}
+{% endfor %}
+{% set payload = {
+  'id': a.id,
+  'title': a.title,
+  'url': a.url,
+  'label': label,
+  'source': src[0],
+  'time': (a.published_at | timeago) or (a.fetched_at | timeago),
+  'summary': a.summary or a.raw_summary[:400],
+  'tags': a.tags,
+  'importance': a.importance or 0,
+  'extras': extras_payload,
+} %}
+
 <article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow
                 {% if featured %}p-6{% else %}p-4{% endif %}"
          x-data="{ open:false }">
@@ -17,7 +36,8 @@
   </div>
 
   <a href="{{ a.url }}" target="_blank" rel="noopener"
-     class="block mt-2 font-bold text-gray-900 hover:accent leading-snug
+     onclick='return openArticle({{ payload | tojson }})'
+     class="block mt-2 font-bold text-gray-900 hover:accent leading-snug cursor-pointer
             {% if featured %}text-2xl{% elif compact %}text-sm line-clamp-3{% else %}text-base line-clamp-2{% endif %}">
     {{ a.title }}
   </a>

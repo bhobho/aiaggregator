@@ -10,7 +10,7 @@ from datetime import datetime
 class Source:
     name: str
     url: str
-    category: str  # lab | research | news | community
+    category: str  # lab | research | news | market | community
     company: str | None = None
     id: int | None = None
     active: bool = True
@@ -70,14 +70,6 @@ class Cluster:
     top_article_id: int
     size: int
     created_at: str
-
-
-@dataclass
-class Digest:
-    date: str  # YYYY-MM-DD
-    markdown: str
-    created_at: str
-    id: int | None = None
 
 
 def now_iso() -> str:
