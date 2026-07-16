@@ -83,18 +83,10 @@ CATEGORIES: list[MarketCategory] = [
 
 BY_SLUG: dict[str, MarketCategory] = {c.slug: c for c in CATEGORIES}
 
-# feeds.yaml market sources → the bucket their items always belong to
+# Optional: feeds.yaml source name → the bucket its items always belong to
 # (keyword matching still applies on top, so items can join other buckets too).
-SOURCE_HINTS: dict[str, str] = {
-    "AI Funding & Investment": "finance",
-    "AI Regulation & Policy": "regulation",
-    "AI Mergers & Acquisitions": "ma",
-    "AI Partnerships": "partnerships",
-    "AI Infrastructure": "infrastructure",
-    "AI Enterprise Adoption": "enterprise",
-    "AI Security & Safety": "security",
-    "AI Startup News": "startups",
-}
+# The current AI News sources are general-purpose, so no hints are needed.
+SOURCE_HINTS: dict[str, str] = {}
 
 _RES: dict[str, re.Pattern] = {c.slug: re.compile(c.pattern, re.I) for c in CATEGORIES}
 

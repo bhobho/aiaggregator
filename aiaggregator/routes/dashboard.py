@@ -46,6 +46,7 @@ def _feed_context(request: Request, f: queries.FeedFilters, *,
             "srcmap": srcmap,
             "stats": queries.stats(conn),
             "top_headlines": queries.top_headlines(conn, limit=8),
+            "voices": queries.voices_latest(conn, limit=6),
             "filters": f,
             "heading": heading,
             "sub": sub,
@@ -57,21 +58,41 @@ def _feed_context(request: Request, f: queries.FeedFilters, *,
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    # News Crunch: the composite-ranked feed (see ranking.py) across ALL sources —
-    # AI News (market) and Tech News alike — so the most important stories lead.
-    f = queries.FeedFilters(sort="importance")
-    ctx = _feed_context(request, f)
+    # Home: a balanced mix of the latest from AI News, Tech News, Blogs,
+    # Architecture, and Industry View (see queries.home_mix).
+    conn = db.connect()
+    try:
+        articles = queries.home_mix(conn)
+        ctx = {
+            "request": request,
+            "groups": queries.group_clusters(articles),
+            "srcmap": queries.source_name_map(conn),
+            "stats": queries.stats(conn),
+            "top_headlines": queries.top_headlines(conn, limit=8),
+            "voices": queries.voices_latest(conn, limit=6),
+            "filters": None,
+            "heading": None,
+            "sub": None,
+            "chips": None,
+        }
+    finally:
+        conn.close()
     templates = request.app.state.templates
     return templates.TemplateResponse(request, "index.html", ctx)
 
 
 @router.get("/tech", response_class=HTMLResponse)
 async def tech_view(request: Request):
-    f = queries.FeedFilters(exclude_category="market", sort="importance")
+    # General technology (not restricted to AI). The composite ranking scores
+    # "significance to the AI field", which would bury general tech — so this
+    # tab is newest-first.
+    f = queries.FeedFilters(
+        exclude_categories=("market", "blog", "podcast", "architecture", "industry"),
+        sort="newest")
     ctx = _feed_context(
         request, f,
         heading="Tech News",
-        sub="labs, research & major tech outlets, ranked & de-duplicated",
+        sub="the latest technology news across major outlets, de-duplicated",
     )
     templates = request.app.state.templates
     return templates.TemplateResponse(request, "index.html", ctx)
@@ -125,6 +146,110 @@ async def vendor_view(request: Request, slug: str):
         request, "vendor.html",
         {"vendor": vendor, "groups": groups, "srcmap": srcmap, "count": len(articles)},
     )
+
+
+@router.get("/blogs", response_class=HTMLResponse)
+async def blogs_view(request: Request):
+    # Blogs: trusted-voice essays only — newest first in the feed, top-ranked
+    # blog posts (not news headlines) in the sidebar.
+    conn = db.connect()
+    try:
+        articles = queries.voices_feed(conn)
+        ctx = {
+            "request": request,
+            "groups": queries.group_clusters(articles),
+            "srcmap": queries.source_name_map(conn),
+            "stats": queries.stats(conn),
+            "top_headlines": queries.top_voices(conn, limit=8),
+            "headlines_title": "Top Blogs",
+            "voices": None,
+            "filters": None,
+            "heading": "Blogs",
+            "sub": "essays & analysis from trusted industry voices, newest first",
+            "chips": None,
+        }
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
+
+
+@router.get("/industry", response_class=HTMLResponse)
+async def industry_view(request: Request):
+    # Industry View: AI insights & white papers from consulting firms, analysts,
+    # and research institutions; newest first, industry-only sidebar.
+    conn = db.connect()
+    try:
+        articles = queries.industry_feed(conn)
+        ctx = {
+            "request": request,
+            "groups": queries.group_clusters(articles),
+            "srcmap": queries.source_name_map(conn),
+            "stats": queries.stats(conn),
+            "top_headlines": queries.top_industry(conn, limit=8),
+            "headlines_title": "Top Insights",
+            "voices": None,
+            "filters": None,
+            "heading": "Industry View",
+            "sub": "AI insights & white papers from consulting firms, analysts & research institutions",
+            "chips": None,
+        }
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
+
+
+@router.get("/architecture", response_class=HTMLResponse)
+async def architecture_view(request: Request):
+    # Architecture: reference architectures & engineering deep-dives from
+    # trustworthy publications (GitHub-routed items filtered out), newest first.
+    conn = db.connect()
+    try:
+        articles = queries.architecture_feed(conn)
+        ctx = {
+            "request": request,
+            "groups": queries.group_clusters(articles),
+            "srcmap": queries.source_name_map(conn),
+            "stats": queries.stats(conn),
+            "top_headlines": queries.top_architecture(conn, limit=8),
+            "headlines_title": "Top References",
+            "voices": None,
+            "filters": None,
+            "heading": "Architecture",
+            "sub": "reference architectures & engineering deep-dives from trusted sources, newest first",
+            "chips": None,
+        }
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
+
+
+@router.get("/podcasts", response_class=HTMLResponse)
+async def podcasts_view(request: Request):
+    # Podcasts: latest episodes from leading AI shows, newest first, with the
+    # top-ranked episodes (not news headlines) in the sidebar.
+    conn = db.connect()
+    try:
+        articles = queries.podcasts_feed(conn)
+        ctx = {
+            "request": request,
+            "groups": queries.group_clusters(articles),
+            "srcmap": queries.source_name_map(conn),
+            "stats": queries.stats(conn),
+            "top_headlines": queries.top_podcasts(conn, limit=8),
+            "headlines_title": "Top Episodes",
+            "voices": None,
+            "filters": None,
+            "heading": "Podcasts",
+            "sub": "latest episodes from leading AI shows, newest first",
+            "chips": None,
+        }
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
 
 
 @router.get("/ticker")

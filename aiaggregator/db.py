@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS articles (
     status       TEXT NOT NULL DEFAULT 'new',
     summary      TEXT,
     detail_summary TEXT,
+    embedding    BLOB,
     tags         TEXT,
     companies    TEXT,
     importance   INTEGER,
@@ -112,6 +113,8 @@ def init_db(conn: sqlite3.Connection) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(articles)")}
     if "detail_summary" not in cols:
         conn.execute("ALTER TABLE articles ADD COLUMN detail_summary TEXT")
+    if "embedding" not in cols:
+        conn.execute("ALTER TABLE articles ADD COLUMN embedding BLOB")
     conn.commit()
 
 
@@ -218,6 +221,21 @@ def mark_failed(conn: sqlite3.Connection, article_id: int) -> None:
 
 def set_cluster(conn: sqlite3.Connection, article_id: int, cluster_id: int) -> None:
     conn.execute("UPDATE articles SET cluster_id=? WHERE id=?", (cluster_id, article_id))
+    conn.commit()
+
+
+def embeddings_map(conn: sqlite3.Connection, ids: list[int]) -> dict[int, bytes]:
+    """Stored title embeddings (raw float32 bytes) for the given article ids."""
+    if not ids:
+        return {}
+    q = (f"SELECT id, embedding FROM articles "
+         f"WHERE embedding IS NOT NULL AND id IN ({','.join('?' * len(ids))})")
+    return {r["id"]: r["embedding"] for r in conn.execute(q, ids)}
+
+
+def save_embeddings(conn: sqlite3.Connection, items: list[tuple[int, bytes]]) -> None:
+    conn.executemany("UPDATE articles SET embedding=? WHERE id=?",
+                     [(blob, aid) for aid, blob in items])
     conn.commit()
 
 

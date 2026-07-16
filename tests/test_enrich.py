@@ -59,7 +59,7 @@ async def test_failed_enrichment_marks_status(conn, source_id, monkeypatch):
     assert art.status == "failed"
 
 
-def test_clustering_groups_duplicates(conn, source_id):
+async def test_clustering_groups_duplicates(conn, source_id, monkeypatch):
     s2 = db.upsert_source(conn, __import__("aiaggregator.models", fromlist=["Source"]).Source(
         name="News B", url="https://b/feed", category="news"))
     _add(conn, source_id, "GPT-5 released with major reasoning gains today",
@@ -69,7 +69,12 @@ def test_clustering_groups_duplicates(conn, source_id):
     _add(conn, source_id, "Nvidia unveils new datacenter GPU architecture",
          "https://x/nv", "Brand new GPU silicon for datacenters")
 
-    formed = cluster.recluster(conn)
+    # no embed model in tests -> exercises the TF-IDF fallback path
+    async def no_models():
+        return []
+    monkeypatch.setattr(ollama_client, "list_models", no_models)
+
+    formed = await cluster.recluster(conn)
     assert formed == 1  # the two GPT-5 stories cluster; Nvidia stays a singleton
 
     arts = db.recent_articles(conn, days=2)

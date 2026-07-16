@@ -19,6 +19,7 @@ def load_feeds(path: Path | None = None) -> tuple[list[Source], list[str]]:
             url=s["url"],
             category=s["category"],
             company=s.get("company"),
+            keyword_filter=bool(s.get("filter", False)),
         )
         for s in data.get("sources", [])
     ]

@@ -29,7 +29,7 @@ def sync_sources(conn: sqlite3.Connection) -> None:
 
 
 async def _ingest_one(client: httpx.AsyncClient, conn: sqlite3.Connection, src,
-                      keywords: list[str]) -> int:
+                      keywords: list[str], use_filter: bool = False) -> int:
     res = await fetch_feed(client, src.url, etag=src.etag, last_modified=src.last_modified)
     if res.status == "not_modified":
         db.update_source_fetch(conn, src.id, etag=src.etag,
@@ -43,7 +43,7 @@ async def _ingest_one(client: httpx.AsyncClient, conn: sqlite3.Connection, src,
 
     articles = parse_feed(
         res.body, src.id,
-        is_community=(src.category == "community"), keywords=keywords,
+        is_community=(src.category == "community" or use_filter), keywords=keywords,
     )
     new = 0
     for a in articles:
@@ -57,13 +57,16 @@ async def _ingest_one(client: httpx.AsyncClient, conn: sqlite3.Connection, src,
 
 async def run_ingest(conn: sqlite3.Connection) -> int:
     """Fetch all active sources concurrently; return count of new articles."""
-    _, keywords = load_feeds()
+    yaml_sources, keywords = load_feeds()
+    # broad feeds flagged `filter: true` in feeds.yaml keep only AI-relevant items
+    filtered_urls = {s.url for s in yaml_sources if s.keyword_filter}
     sources = db.list_sources(conn, active_only=True)
     total = 0
     limits = httpx.Limits(max_connections=8)
     async with httpx.AsyncClient(limits=limits) as client:
         results = await asyncio.gather(
-            *(_ingest_one(client, conn, s, keywords) for s in sources),
+            *(_ingest_one(client, conn, s, keywords, use_filter=(s.url in filtered_urls))
+              for s in sources),
             return_exceptions=True,
         )
     for r in results:

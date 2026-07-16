@@ -16,7 +16,9 @@ from .config import settings
 from .models import Article
 
 # Source-type trust: first-party labs > major outlets > community aggregators.
-SOURCE_WEIGHT = {"lab": 1.0, "research": 0.9, "news": 0.75, "market": 0.7, "community": 0.5}
+SOURCE_WEIGHT = {"lab": 1.0, "research": 0.9, "blog": 0.8, "podcast": 0.75,
+                 "news": 0.75, "architecture": 0.75, "industry": 0.75,
+                 "market": 0.7, "community": 0.5}
 
 # Signals that an item is a product / framework / agentic-architecture announcement.
 ANNOUNCE_TAGS = {

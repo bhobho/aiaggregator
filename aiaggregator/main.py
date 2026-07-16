@@ -32,7 +32,7 @@ async def _job_fetch() -> None:
     conn = db.connect()
     try:
         n = await pipeline.run_ingest(conn)
-        cluster.recluster(conn)  # collapse cross-source duplicates right away
+        await cluster.recluster(conn)  # collapse cross-source duplicates right away
         log.info("scheduled fetch: %d new", n)
     finally:
         conn.close()
@@ -43,7 +43,7 @@ async def _job_enrich() -> None:
     try:
         n = await summarize.run_enrichment(conn, settings.enrich_batch)
         if n:
-            cluster.recluster(conn)
+            await cluster.recluster(conn)
     finally:
         conn.close()
 

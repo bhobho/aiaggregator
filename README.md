@@ -19,10 +19,13 @@ FastAPI/HTMX dashboard.
 ## Requirements
 
 - Python 3.12+ and [`uv`](https://docs.astral.sh/uv/)
-- [Ollama](https://ollama.com) running locally with a model pulled:
+- [Ollama](https://ollama.com) running locally with models pulled:
   ```sh
-  ollama pull qwen2.5:7b
+  ollama pull qwen2.5:7b        # summaries, tags, importance
+  ollama pull nomic-embed-text  # title embeddings for cross-source de-duplication
   ```
+  (Without the embed model the app falls back to a keyword-based clustering that
+  catches fewer duplicate stories.)
 
 ## Run
 

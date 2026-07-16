@@ -33,7 +33,7 @@
   <aside class="space-y-6">
     <!-- Top Headlines (TechCrunch-style) -->
     <div class="bg-white border border-gray-200 rounded-lg p-5">
-      <h3 class="text-lg font-extrabold border-b-2 border-gray-900 pb-2 mb-3">Top Headlines</h3>
+      <h3 class="text-lg font-extrabold border-b-2 border-gray-900 pb-2 mb-3">{{ headlines_title | default('Top Headlines') }}</h3>
       <ol class="space-y-4">
         {% for a in top_headlines %}
         {% set hsrc = srcmap.get(a.source_id, ('Source','news')) %}
@@ -61,6 +61,38 @@
         {% endif %}
       </ol>
     </div>
+
+    {% if voices %}
+    <div class="bg-white border border-gray-200 rounded-lg p-5">
+      <h3 class="text-lg font-extrabold border-b-2 border-gray-900 pb-2 mb-3">Trusted Voices</h3>
+      <ul class="space-y-3.5">
+        {% for a in voices %}
+        {% set vsrc = srcmap.get(a.source_id, ('Source','news')) %}
+        {% set vpayload = {
+          'id': a.id,
+          'title': a.title,
+          'url': a.url,
+          'label': vsrc[0],
+          'source': vsrc[0],
+          'time': (a.published_at | timeago) or (a.fetched_at | timeago),
+          'summary': a.summary or a.raw_summary[:400],
+          'tags': a.tags,
+          'importance': a.importance or 0,
+          'extras': [],
+        } %}
+        <li>
+          <div class="flex items-baseline gap-2 text-[11px] uppercase tracking-wide font-semibold">
+            <span class="accent">{{ vsrc[0] }}</span>
+            <span class="text-gray-400 font-normal normal-case ml-auto">{{ a.published_at | timeago or (a.fetched_at | timeago) }}</span>
+          </div>
+          <a href="{{ a.url }}" target="_blank" rel="noopener"
+             onclick='return openArticle({{ vpayload | tojson }})'
+             class="text-sm font-semibold text-gray-900 hover:accent leading-snug line-clamp-2">{{ a.title }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
   </aside>
 </div>
 {% endblock %}

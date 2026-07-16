@@ -1,127 +1,353 @@
 # AI / Agentic-AI news sources (RSS/Atom only — no scraping).
-# category: lab | research | news | market | community
+# category: lab | research | news | market | blog | podcast | architecture | industry | community
+#   market -> "AI News"; blog -> "Blogs"; podcast -> "Podcasts";
+#   architecture -> "Architecture"; industry -> "Industry View"; rest -> "Tech News".
+# filter: true -> keep only AI-relevant items (community_keywords), for broad feeds.
+# Sites without a working RSS feed use a Google News site-query (free, no key).
 # A dead/unreachable feed is skipped gracefully and shown on /health.
 
 sources:
-  # ---- Labs / companies ----
-  - name: OpenAI Blog
+  # ---- AI News (market) ----
+  - name: The Decoder
+    url: https://the-decoder.com/feed/
+    category: market
+  - name: OpenAI News
     url: https://openai.com/blog/rss.xml
-    category: lab
+    category: market
     company: OpenAI
+  - name: Google DeepMind Blog
+    url: https://deepmind.google/blog/rss.xml
+    category: market
+    company: Google DeepMind
   # Anthropic has no official RSS; use Google News (free, no key) for coverage.
   - name: Anthropic News
     url: https://news.google.com/rss/search?q=Anthropic+Claude+AI&hl=en-US&gl=US&ceid=US:en
-    category: lab
+    category: market
     company: Anthropic
-  - name: Google DeepMind Blog
-    url: https://deepmind.google/blog/rss.xml
-    category: lab
+  - name: MIT News – Artificial Intelligence
+    url: https://news.mit.edu/rss/topic/artificial-intelligence2
+    category: market
+  - name: MarkTechPost
+    url: https://www.marktechpost.com/feed/
+    category: market
+  - name: The Batch (DeepLearning.AI)
+    url: https://news.google.com/rss/search?q=site:deeplearning.ai&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Breakfast
+    url: https://news.google.com/rss/search?q=%22AI+Breakfast%22+newsletter&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: FutureTools News
+    url: https://www.futuretools.io/news/rss.xml
+    category: market
+  - name: VentureBeat AI
+    url: https://venturebeat.com/category/ai/feed/
+    category: market
+  - name: TechCrunch AI
+    url: https://techcrunch.com/category/artificial-intelligence/feed/
+    category: market
+  - name: Ars Technica AI
+    url: https://arstechnica.com/ai/feed/
+    category: market
+  - name: The Verge AI
+    url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+    category: market
+  # Reuters retired public RSS; Google News site-query instead.
+  - name: Reuters AI
+    url: https://news.google.com/rss/search?q=site:reuters.com%20AI&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Business
+    url: https://aibusiness.com/rss.xml
+    category: market
+  # broad AI coverage: general, finance, announcements (Google News, free)
+  - name: Artificial Intelligence News
+    url: https://news.google.com/rss/search?q=%22artificial+intelligence%22+OR+%22AI%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Finance & Funding
+    url: https://news.google.com/rss/search?q=AI+funding+OR+%22AI+investment%22+OR+%22AI+valuation%22+OR+%22AI+revenue%22+OR+%22AI+IPO%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: AI Announcements
+    url: https://news.google.com/rss/search?q=%22announces+AI%22+OR+%22launches+AI%22+OR+%22unveils+AI%22+OR+%22new+AI+model%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  # ---- AI model/company topics via Google News (AI News) ----
+  - name: Meta AI News
+    url: https://news.google.com/rss/search?q=%22Meta+AI%22+OR+Llama&hl=en-US&gl=US&ceid=US:en
+    category: market
+    company: Meta
+  - name: Google Gemini
+    url: https://news.google.com/rss/search?q=%22Google+Gemini%22+OR+%22Gemini+model%22+OR+%22Gemini+2%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+    company: Google
+  - name: NVIDIA AI News
+    url: https://news.google.com/rss/search?q=NVIDIA+AI+OR+%22NVIDIA+GPU%22+AI&hl=en-US&gl=US&ceid=US:en
+    category: market
+    company: Nvidia
+  - name: Small Language Models (SLMs)
+    url: https://news.google.com/rss/search?q=%22small+language+model%22+OR+%22small+language+models%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+  - name: DeepSeek
+    url: https://news.google.com/rss/search?q=DeepSeek+AI&hl=en-US&gl=US&ceid=US:en
+    category: market
+    company: DeepSeek
+  - name: Kimi / Moonshot AI
+    url: https://news.google.com/rss/search?q=%22Kimi+AI%22+OR+%22Moonshot+AI%22&hl=en-US&gl=US&ceid=US:en
+    category: market
+    company: Moonshot
+  - name: Perplexity
+    url: https://news.google.com/rss/search?q=%22Perplexity+AI%22+-crypto+-price+-coin+-solana+-bitcoin+-prediction&hl=en-US&gl=US&ceid=US:en
+    category: market
+    company: Perplexity
+
+  # ---- Blogs ----
+  - name: Hugging Face Blog
+    url: https://huggingface.co/blog/feed.xml
+    category: blog
+    company: Hugging Face
+  - name: Sebastian Raschka Blog
+    url: https://magazine.sebastianraschka.com/feed
+    category: blog
+  - name: Towards AI
+    url: https://pub.towardsai.net/feed
+    category: blog
+  - name: AssemblyAI Blog
+    url: https://news.google.com/rss/search?q=site:assemblyai.com&hl=en-US&gl=US&ceid=US:en
+    category: blog
+  - name: Pinecone Blog
+    url: https://news.google.com/rss/search?q=site:pinecone.io&hl=en-US&gl=US&ceid=US:en
+    category: blog
+  - name: Weights & Biases Blog
+    url: https://news.google.com/rss/search?q=site:wandb.ai&hl=en-US&gl=US&ceid=US:en
+    category: blog
+  - name: LangChain Blog
+    url: https://blog.langchain.com/rss.xml
+    category: blog
+  - name: LlamaIndex Blog
+    url: https://medium.com/feed/llamaindex-blog
+    category: blog
+  - name: Cohere Blog
+    url: https://news.google.com/rss/search?q=site:cohere.com&hl=en-US&gl=US&ceid=US:en
+    category: blog
+    company: Cohere
+  - name: NVIDIA Developer Blog (AI)
+    url: https://developer.nvidia.com/blog/feed
+    category: blog
+    company: Nvidia
+  - name: Microsoft AI Blog
+    url: https://www.microsoft.com/en-us/ai/blog/feed/
+    category: blog
+    company: Microsoft
+  - name: AWS Machine Learning Blog
+    url: https://aws.amazon.com/blogs/machine-learning/feed/
+    category: blog
+    company: AWS
+  - name: Google AI Blog
+    url: https://blog.google/technology/ai/rss/
+    category: blog
+    company: Google
+  - name: Databricks Blog
+    url: https://www.databricks.com/feed
+    category: blog
+  - name: Mistral AI Blog
+    url: https://news.google.com/rss/search?q=site:mistral.ai&hl=en-US&gl=US&ceid=US:en
+    category: blog
+    company: Mistral
+
+  # ---- Podcasts ----
+  - name: AI Daily Brief
+    url: https://anchor.fm/s/f7cac464/podcast/rss
+    category: podcast
+  - name: The Artificial Intelligence Show
+    url: https://feeds.megaphone.fm/marketingai
+    category: podcast
+  - name: Practical AI
+    url: https://feeds.transistor.fm/practical-ai-machine-learning-data-science-llm
+    category: podcast
+  - name: TWIML AI Podcast
+    url: https://feeds.megaphone.fm/MLN2155636147
+    category: podcast
+  - name: Eye on AI
+    url: https://rss.libsyn.com/shows/123267/destinations/727317.xml
+    category: podcast
+  - name: Last Week in AI
+    url: https://rss.art19.com/last-week-in-ai
+    category: podcast
+  - name: AI Today Podcast
+    url: https://rss.buzzsprout.com/2502664.rss
+    category: podcast
+  - name: Me, Myself, and AI
+    url: https://feeds.megaphone.fm/TPG7603691495
+    category: podcast
+  - name: No Priors
+    url: https://feeds.megaphone.fm/nopriors
+    category: podcast
+  - name: Latent Space Podcast
+    url: https://api.substack.com/feed/podcast/1084089.rss
+    category: podcast
+  - name: Machine Learning Street Talk
+    url: https://anchor.fm/s/1e4a0eac/podcast/rss
+    category: podcast
+  # broad tech shows: keep AI episodes only
+  - name: Hard Fork
+    url: https://feeds.simplecast.com/6HKOhNgS
+    category: podcast
+    filter: true
+  - name: Lex Fridman Podcast
+    url: https://lexfridman.com/feed/podcast/
+    category: podcast
+    filter: true
+  - name: The Cognitive Revolution
+    url: https://feeds.megaphone.fm/RINTP3108857801
+    category: podcast
+  - name: NVIDIA AI Podcast
+    url: https://feeds.megaphone.fm/nvidiaaipodcast
+    category: podcast
+    company: Nvidia
+
+  # ---- Architecture: reference architectures & engineering deep-dives ----
+  # Trustworthy publications that post actual articles (NOT GitHub commit/release
+  # feeds, which just route to a repo). GitHub-hosted items are filtered out in
+  # queries.architecture_feed as a further guard.
+  - name: AWS Architecture Blog
+    url: https://aws.amazon.com/blogs/architecture/feed/
+    category: architecture
+    company: AWS
+  - name: AWS Machine Learning Blog
+    url: https://aws.amazon.com/blogs/machine-learning/feed/
+    category: architecture
+    company: AWS
+  - name: Google Cloud AI Architecture
+    url: https://cloudblog.withgoogle.com/products/ai-machine-learning/rss/
+    category: architecture
+    company: Google
+  - name: NVIDIA Technical Blog
+    url: https://developer.nvidia.com/blog/feed
+    category: architecture
+    company: Nvidia
+  - name: Microsoft Engineering (ISE)
+    url: https://devblogs.microsoft.com/ise/feed/
+    category: architecture
+    company: Microsoft
+  - name: Microsoft Semantic Kernel Blog
+    url: https://devblogs.microsoft.com/semantic-kernel/feed/
+    category: architecture
+    company: Microsoft
+  - name: Databricks Blog
+    url: https://www.databricks.com/feed
+    category: architecture
+  - name: LangChain Blog
+    url: https://blog.langchain.com/rss.xml
+    category: architecture
+  - name: LlamaIndex Blog
+    url: https://medium.com/feed/llamaindex-blog
+    category: architecture
+  - name: Martin Fowler
+    url: https://martinfowler.com/feed.atom
+    category: architecture
+  - name: InfoQ AI, ML & Data Engineering
+    url: https://feed.infoq.com/ai-ml-data-eng/
+    category: architecture
+  - name: InfoQ Architecture & Design
+    url: https://feed.infoq.com/architecture-design/
+    category: architecture
+  - name: The New Stack
+    url: https://thenewstack.io/feed
+    category: architecture
+  - name: Netflix Tech Blog
+    url: https://netflixtechblog.com/feed
+    category: architecture
+  - name: Meta Engineering
+    url: https://engineering.fb.com/feed/
+    category: architecture
+    company: Meta
+
+  # ---- Industry View: consulting, analyst & research-institution AI insights ----
+  # Firms mostly lack public RSS, so those use a Google News site/name query
+  # (free, no key); a few have direct feeds.
+  - name: BCG Insights
+    url: https://news.google.com/rss/search?q=BCG%20%22artificial%20intelligence%22%20-careers%20-job%20-jobs%20-hiring&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  - name: McKinsey QuantumBlack Insights
+    url: https://news.google.com/rss/search?q=McKinsey%20QuantumBlack%20OR%20(McKinsey%20%22artificial%20intelligence%22)&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  - name: Bain & Company Insights
+    url: https://news.google.com/rss/search?q=%22Bain%20%26%20Company%22%20%22artificial%20intelligence%22%20-careers%20-job%20-jobs%20-hiring&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  - name: Deloitte AI Institute
+    url: https://news.google.com/rss/search?q=Deloitte%20%22AI%20Institute%22%20OR%20(site:deloitte.com%20%22artificial%20intelligence%22)&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  - name: Accenture AI Insights
+    url: https://news.google.com/rss/search?q=Accenture%20%22artificial%20intelligence%22%20-careers%20-job%20-jobs%20-hiring%20-consultant&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  - name: Gartner Artificial Intelligence
+    url: https://news.google.com/rss/search?q=Gartner%20%22artificial%20intelligence%22&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  - name: Forrester AI
+    url: https://news.google.com/rss/search?q=Forrester%20%22artificial%20intelligence%22%20OR%20(Forrester%20AI)&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  - name: IDC Artificial Intelligence
+    url: https://news.google.com/rss/search?q=IDC%20%22artificial%20intelligence%22&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  - name: Stanford AI Index
+    url: https://news.google.com/rss/search?q=%22Stanford%20AI%20Index%22%20OR%20%22Stanford%20HAI%22&hl=en-US&gl=US&ceid=US:en
+    category: industry
+  # distinct research-scoped queries (the plain blog feeds are already in AI News)
+  - name: OpenAI Research
+    url: https://news.google.com/rss/search?q=OpenAI%20research%20OR%20%22OpenAI%20paper%22%20OR%20%22OpenAI%20study%22&hl=en-US&gl=US&ceid=US:en
+    category: industry
+    company: OpenAI
+  - name: Google DeepMind
+    url: https://news.google.com/rss/search?q=%22Google%20DeepMind%22%20research%20OR%20%22DeepMind%20paper%22%20OR%20%22DeepMind%20study%22&hl=en-US&gl=US&ceid=US:en
+    category: industry
     company: Google DeepMind
+
+  # ---- Labs / companies (Tech News) ----
   - name: Google Research Blog
     url: https://research.google/blog/rss/
     category: lab
     company: Google
-  # Meta AI blog has no reliable RSS; use Google News (free, no key) for coverage.
-  - name: Meta AI News
-    url: https://news.google.com/rss/search?q=%22Meta+AI%22+OR+Llama&hl=en-US&gl=US&ceid=US:en
-    category: lab
-    company: Meta
   - name: Microsoft Research Blog
     url: https://www.microsoft.com/en-us/research/feed/
     category: lab
     company: Microsoft
-  - name: AWS Machine Learning Blog
-    url: https://aws.amazon.com/blogs/machine-learning/feed/
-    category: lab
-    company: AWS
   - name: NVIDIA Blog
     url: https://blogs.nvidia.com/feed/
     category: lab
     company: Nvidia
-  - name: Hugging Face Blog
-    url: https://huggingface.co/blog/feed.xml
-    category: lab
-    company: Hugging Face
 
-  # ---- Models / topics via Google News (free, no key) ----
-  - name: Google Gemini
-    url: https://news.google.com/rss/search?q=%22Google+Gemini%22+OR+%22Gemini+model%22+OR+%22Gemini+2%22&hl=en-US&gl=US&ceid=US:en
-    category: lab
-    company: Google
-  - name: NVIDIA AI News
-    url: https://news.google.com/rss/search?q=NVIDIA+AI+OR+%22NVIDIA+GPU%22+AI&hl=en-US&gl=US&ceid=US:en
+  # ---- General technology news (Tech News, not restricted to AI) ----
+  - name: TechCrunch
+    url: https://techcrunch.com/feed/
     category: news
-    company: Nvidia
-  - name: Small Language Models (SLMs)
-    url: https://news.google.com/rss/search?q=%22small+language+model%22+OR+%22small+language+models%22&hl=en-US&gl=US&ceid=US:en
-    category: research
-  - name: DeepSeek
-    url: https://news.google.com/rss/search?q=DeepSeek+AI&hl=en-US&gl=US&ceid=US:en
-    category: lab
-    company: DeepSeek
-  - name: Kimi / Moonshot AI
-    url: https://news.google.com/rss/search?q=%22Kimi+AI%22+OR+%22Moonshot+AI%22&hl=en-US&gl=US&ceid=US:en
-    category: lab
-    company: Moonshot
-  - name: Perplexity
-    url: https://news.google.com/rss/search?q=%22Perplexity+AI%22+-crypto+-price+-coin+-solana+-bitcoin+-prediction&hl=en-US&gl=US&ceid=US:en
-    category: lab
-    company: Perplexity
-
-  # ---- Tech news ----
-  - name: TechCrunch AI
-    url: https://techcrunch.com/category/artificial-intelligence/feed/
+  - name: The Verge
+    url: https://www.theverge.com/rss/index.xml
     category: news
-  - name: The Verge AI
-    url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+  - name: Ars Technica
+    url: https://feeds.arstechnica.com/arstechnica/index
     category: news
-  - name: Ars Technica AI
-    url: https://arstechnica.com/ai/feed/
+  - name: Wired
+    url: https://www.wired.com/feed/rss
     category: news
-  - name: VentureBeat AI
-    url: https://venturebeat.com/category/ai/feed/
+  - name: Engadget
+    url: https://www.engadget.com/rss.xml
+    category: news
+  - name: ZDNet
+    url: https://www.zdnet.com/news/rss.xml
+    category: news
+  - name: CNET News
+    url: https://www.cnet.com/rss/news/
     category: news
   - name: MIT Technology Review
     url: https://www.technologyreview.com/feed/
     category: news
-
-  # ---- Market News (Google News, free, no key) ----
-  # These names must match aiaggregator/market.py SOURCE_HINTS so items land in
-  # the right Market News bucket even before enrichment.
-  - name: AI Funding & Investment
-    url: https://news.google.com/rss/search?q=AI+startup+funding+OR+%22AI+investment%22+OR+%22AI+valuation%22+OR+%22AI+IPO%22&hl=en-US&gl=US&ceid=US:en
-    category: market
-  - name: AI Regulation & Policy
-    url: https://news.google.com/rss/search?q=%22AI+regulation%22+OR+%22AI+act%22+OR+%22AI+policy%22+OR+%22AI+antitrust%22+OR+%22AI+privacy+law%22&hl=en-US&gl=US&ceid=US:en
-    category: market
-  - name: AI Mergers & Acquisitions
-    url: https://news.google.com/rss/search?q=AI+acquisition+OR+%22AI+merger%22+OR+%22acquires+AI+startup%22&hl=en-US&gl=US&ceid=US:en
-    category: market
-  - name: AI Partnerships
-    url: https://news.google.com/rss/search?q=%22AI+partnership%22+OR+%22partners+with%22+AI+OR+%22AI+alliance%22&hl=en-US&gl=US&ceid=US:en
-    category: market
-  - name: AI Infrastructure
-    url: https://news.google.com/rss/search?q=%22AI+chips%22+OR+%22AI+data+center%22+OR+%22AI+datacenter%22+OR+%22AI+compute%22+OR+%22AI+cloud+infrastructure%22&hl=en-US&gl=US&ceid=US:en
-    category: market
-  - name: AI Enterprise Adoption
-    url: https://news.google.com/rss/search?q=%22enterprise+AI%22+OR+%22AI+adoption%22+OR+%22businesses+adopt+AI%22&hl=en-US&gl=US&ceid=US:en
-    category: market
-  - name: AI Security & Safety
-    url: https://news.google.com/rss/search?q=%22AI+security%22+OR+%22AI+safety%22+OR+%22AI+deepfake%22+OR+%22AI+cyberattack%22&hl=en-US&gl=US&ceid=US:en
-    category: market
-  - name: AI Startup News
-    url: https://news.google.com/rss/search?q=%22AI+startup%22+OR+%22AI+unicorn%22+OR+%22AI+founder%22&hl=en-US&gl=US&ceid=US:en
-    category: market
-
-  # ---- Community ----
+  # general tech front page (unfiltered — Tech News is no longer AI-only)
   - name: Hacker News Front Page
     url: https://hnrss.org/frontpage
-    category: community
+    category: news
 
 # Keyword filter applied to broad community feeds (HN, subreddits) so only
 # AI-relevant items are kept. Lab/research/news feeds are already on-topic.
 community_keywords:
   - ai
+  - a.i.
   - artificial intelligence
   - llm
   - gpt

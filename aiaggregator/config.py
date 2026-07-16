@@ -44,7 +44,8 @@ class Settings(BaseSettings):
 
     # Clustering
     cluster_window_days: int = 7
-    cluster_threshold: float = 0.42  # cosine similarity to merge near-duplicate stories
+    cluster_threshold: float = 0.42  # TF-IDF cosine (fallback path)
+    embed_cluster_threshold: float = 0.80  # title-embedding cosine to merge stories
 
     # Composite ranking (weights need not sum to 1; relative scale matters)
     rank_w_importance: float = 0.35     # LLM-assigned significance

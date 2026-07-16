@@ -10,8 +10,9 @@ from datetime import datetime
 class Source:
     name: str
     url: str
-    category: str  # lab | research | news | market | community
+    category: str  # lab|research|news|market|blog|podcast|architecture|industry|community
     company: str | None = None
+    keyword_filter: bool = False  # yaml `filter: true`: keep only AI-relevant items
     id: int | None = None
     active: bool = True
     etag: str | None = None

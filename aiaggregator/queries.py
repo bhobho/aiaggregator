@@ -5,7 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
-from . import db, market as marketmod, ranking, vendors as vendormod
+from . import db, market as marketmod, ranking, textnorm, vendors as vendormod
 from .models import Article
 
 
@@ -13,7 +13,7 @@ from .models import Article
 class FeedFilters:
     company: str | None = None
     category: str | None = None
-    exclude_category: str | None = None  # drop sources of this category
+    exclude_categories: tuple[str, ...] | None = None  # drop sources of these categories
     days: int | None = None         # time window
     min_importance: int | None = None
     search: str | None = None
@@ -42,9 +42,9 @@ def feed(conn: sqlite3.Connection, f: FeedFilters) -> list[Article]:
     if f.category:
         where.append("s.category = ?")
         params.append(f.category)
-    if f.exclude_category:
-        where.append("s.category != ?")
-        params.append(f.exclude_category)
+    if f.exclude_categories:
+        where.append(f"s.category NOT IN ({','.join('?' * len(f.exclude_categories))})")
+        params.extend(f.exclude_categories)
     if f.company:
         where.append("(s.company = ? OR a.companies LIKE ?)")
         params.extend([f.company, f'%"{f.company}"%'])
@@ -148,17 +148,8 @@ def vendor_tiles(conn: sqlite3.Connection, top: int = 2) -> list[dict]:
         if not arts:
             continue
         ranked = rank_articles(conn, arts)
-        # de-dupe tile previews: one entry per story cluster (or title for singletons)
-        seen: set = set()
-        top_list: list[Article] = []
-        for a in ranked:
-            key = ("c", a.cluster_id) if a.cluster_id is not None else ("t", (a.title or "").lower())
-            if key in seen:
-                continue
-            seen.add(key)
-            top_list.append(a)
-            if len(top_list) >= top:
-                break
+        # de-dupe tile previews: one entry per story
+        top_list = unique_stories(ranked, top)
         today_n = sum(1 for a in arts if (a.published_at or a.fetched_at or "")[:10] == today)
         tiles.append({
             "vendor": v,
@@ -181,17 +172,41 @@ def vendor_feed(conn: sqlite3.Connection, slug: str, limit: int = 80) -> list[Ar
 
 
 def dedupe_stories(articles: list[Article]) -> list[Article]:
-    """Drop exact duplicates of the same story pulled in via different feeds:
-    same URL or same normalized title. Keeps the first (best-ranked) copy;
-    near-duplicates with different titles are still collapsed by clustering."""
+    """Drop duplicates of the same story pulled in via different feeds: same URL
+    or same normalized title (outlet suffix stripped, so 'Story - The Hill' and
+    'Story - CBS News' collapse). Keeps the first (best-ranked) copy;
+    near-duplicates with genuinely different titles are collapsed by clustering."""
     seen: set = set()
     out: list[Article] = []
     for a in articles:
-        keys = {("u", a.url), ("t", (a.title or "").strip().lower())}
+        keys = {("u", a.url)}
+        norm = textnorm.normalize_title(a.title)
+        if norm:
+            keys.add(("t", norm))
         if keys & seen:
             continue
         seen |= keys
         out.append(a)
+    return out
+
+
+def unique_stories(articles: list[Article], limit: int) -> list[Article]:
+    """One entry per story: collapse by cluster AND normalized title."""
+    seen: set = set()
+    out: list[Article] = []
+    for a in articles:
+        keys = set()
+        norm = textnorm.normalize_title(a.title)
+        if norm:
+            keys.add(("t", norm))
+        if a.cluster_id is not None:
+            keys.add(("c", a.cluster_id))
+        if keys & seen:
+            continue
+        seen |= keys
+        out.append(a)
+        if len(out) >= limit:
+            break
     return out
 
 
@@ -228,31 +243,247 @@ def group_clusters(articles: list[Article]) -> list[dict]:
     return out
 
 
+# Blog sources (category `blog` in feeds.yaml). Their posts rank below
+# same-day breaking news in the composite feed, so the sidebar surfaces each
+# blog's latest post directly and /blogs lists them all.
+VOICE_SOURCES = {
+    "Hugging Face Blog",
+    "Sebastian Raschka Blog",
+    "Towards AI",
+    "AssemblyAI Blog",
+    "Pinecone Blog",
+    "Weights & Biases Blog",
+    "LangChain Blog",
+    "LlamaIndex Blog",
+    "Cohere Blog",
+    "NVIDIA Developer Blog (AI)",
+    "Microsoft AI Blog",
+    "AWS Machine Learning Blog",
+    "Google AI Blog",
+    "Databricks Blog",
+    "Mistral AI Blog",
+}
+
+
+def voices_latest(conn: sqlite3.Connection, limit: int = 6) -> list[Article]:
+    """Most recent post per trusted-voice source, newest first."""
+    marks = ",".join("?" * len(VOICE_SOURCES))
+    rows = conn.execute(
+        f"""SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
+            WHERE s.active = 1 AND s.name IN ({marks})
+            ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT 200""",
+        list(VOICE_SOURCES),
+    ).fetchall()
+    seen: set[int] = set()
+    out: list[Article] = []
+    for r in rows:
+        a = Article.from_row(r)
+        if a.source_id in seen:
+            continue
+        seen.add(a.source_id)
+        out.append(a)
+        if len(out) >= limit:
+            break
+    return out
+
+
+# Podcast sources (category `podcast` in feeds.yaml), shown on /podcasts.
+PODCAST_SOURCES = {
+    "AI Daily Brief",
+    "The Artificial Intelligence Show",
+    "Practical AI",
+    "TWIML AI Podcast",
+    "Eye on AI",
+    "Last Week in AI",
+    "AI Today Podcast",
+    "Me, Myself, and AI",
+    "No Priors",
+    "Latent Space Podcast",
+    "Machine Learning Street Talk",
+    "Hard Fork",
+    "Lex Fridman Podcast",
+    "The Cognitive Revolution",
+    "NVIDIA AI Podcast",
+}
+
+
+# Architecture sources (category `architecture` in feeds.yaml), shown on
+# /architecture: reference architectures & engineering deep-dives from
+# trustworthy publications (not GitHub repo commit/release feeds).
+ARCHITECTURE_SOURCES = {
+    "AWS Architecture Blog",
+    "AWS Machine Learning Blog",
+    "Google Cloud AI Architecture",
+    "NVIDIA Technical Blog",
+    "Microsoft Engineering (ISE)",
+    "Microsoft Semantic Kernel Blog",
+    "Databricks Blog",
+    "LangChain Blog",
+    "LlamaIndex Blog",
+    "Martin Fowler",
+    "InfoQ AI, ML & Data Engineering",
+    "InfoQ Architecture & Design",
+    "The New Stack",
+    "Netflix Tech Blog",
+    "Meta Engineering",
+}
+
+
+def _named_sources_feed(conn: sqlite3.Connection, names: set[str],
+                        limit: int) -> list[Article]:
+    """Newest-first, de-duplicated items from the named sources (posts and
+    episodes age better than news, so recency beats the composite ranking)."""
+    marks = ",".join("?" * len(names))
+    rows = conn.execute(
+        f"""SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
+            WHERE s.active = 1 AND s.name IN ({marks})
+            ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT ?""",
+        [*names, limit * 3],
+    ).fetchall()
+    return dedupe_stories([Article.from_row(r) for r in rows])[:limit]
+
+
+def voices_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
+    return _named_sources_feed(conn, VOICE_SOURCES, limit)
+
+
+def _latest_by_categories(conn: sqlite3.Connection, cats: tuple[str, ...],
+                          limit: int) -> list[Article]:
+    marks = ",".join("?" * len(cats))
+    rows = conn.execute(
+        f"""SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
+            WHERE s.active = 1 AND s.category IN ({marks})
+            ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT ?""",
+        [*cats, limit],
+    ).fetchall()
+    return [Article.from_row(r) for r in rows]
+
+
+def home_mix(conn: sqlite3.Connection, per_section: int = 30,
+             limit: int = 90) -> list[Article]:
+    """Home feed: a balanced blend of the latest from AI News, Tech News, Blogs,
+    Architecture, and Industry View. Round-robin interleaves the sections so each
+    is represented near the top, then de-duplicates across the whole set."""
+    sections = [
+        _latest_by_categories(conn, ("market",), per_section),                 # AI News
+        _latest_by_categories(conn, ("news", "lab", "research", "community"),   # Tech News
+                              per_section),
+        _latest_by_categories(conn, ("blog",), per_section),                   # Blogs
+        _latest_by_categories(conn, ("architecture",), per_section),           # Architecture
+        industry_feed(conn, per_section),                                      # Industry View
+    ]
+    interleaved: list[Article] = []
+    for i in range(max((len(s) for s in sections), default=0)):
+        for s in sections:
+            if i < len(s):
+                interleaved.append(s[i])
+    return dedupe_stories(interleaved)[:limit]
+
+
+def podcasts_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
+    return _named_sources_feed(conn, PODCAST_SOURCES, limit)
+
+
+def top_podcasts(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
+    """Top episodes for the Podcasts-page sidebar, by composite rank."""
+    arts = podcasts_feed(conn, limit=200)
+    return unique_stories(rank_articles(conn, arts), limit)
+
+
+# Industry View sources (category `industry` in feeds.yaml): consulting,
+# analyst & research-institution AI insights and white papers.
+# HBR, MIT Sloan Management Review, and CB Insights were dropped — their content
+# sits behind a subscription. The remaining firms surface free coverage.
+INDUSTRY_SOURCES = {
+    "BCG Insights",
+    "McKinsey QuantumBlack Insights",
+    "Bain & Company Insights",
+    "Deloitte AI Institute",
+    "Accenture AI Insights",
+    "Gartner Artificial Intelligence",
+    "Forrester AI",
+    "IDC Artificial Intelligence",
+    "Stanford AI Index",
+    "OpenAI Research",
+    "Google DeepMind",
+}
+
+
+# Subscription/paywalled outlets to drop from Industry View — their articles
+# require a login, so they aren't useful in an aggregator. Matched (substring,
+# lowercased) against the publisher in a headline's " - Outlet" suffix.
+PAYWALL_OUTLETS = {
+    "bloomberg", "business insider", "insider.com", "seeking alpha", "fortune",
+    "wall street journal", "wsj", "financial times", " ft.com", "the information",
+    "barron", "the economist", "new york times", "nytimes", "nikkei", "forbes",
+    "the times", "the telegraph", "financial post", "the atlantic", "foreign affairs",
+    "statista", "the new yorker", "puck", "the wall street journal",
+    "investing.com", "moneycontrol", "livemint", "the ken",
+}
+
+
+def _is_paywalled(a: Article) -> bool:
+    outlet = textnorm.outlet_of(a.title).lower()
+    return bool(outlet) and any(p in outlet for p in PAYWALL_OUTLETS)
+
+
+def industry_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
+    # Drop subscription-only outlets; keep free, relevant insights.
+    arts = _named_sources_feed(conn, INDUSTRY_SOURCES, limit * 3)
+    arts = [a for a in arts if not _is_paywalled(a)]
+    return arts[:limit]
+
+
+def top_industry(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
+    """Top items for the Industry-View-page sidebar, by composite rank."""
+    arts = industry_feed(conn, limit=200)
+    return unique_stories(rank_articles(conn, arts), limit)
+
+
+def architecture_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
+    # Exclude items that just route to a GitHub repo — architecture posts should
+    # be trustworthy articles, not raw commits/releases.
+    arts = _named_sources_feed(conn, ARCHITECTURE_SOURCES, limit * 2)
+    arts = [a for a in arts if "github.com" not in (a.url or "").lower()]
+    return arts[:limit]
+
+
+def top_architecture(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
+    """Top items for the Architecture-page sidebar, by composite rank."""
+    arts = architecture_feed(conn, limit=200)
+    return unique_stories(rank_articles(conn, arts), limit)
+
+
+def top_voices(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
+    """Top blog posts for the Blogs-page sidebar: trusted-voice posts by
+    composite rank, one entry per story."""
+    arts = voices_feed(conn, limit=200)
+    return unique_stories(rank_articles(conn, arts), limit)
+
+
 def top_headlines(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
-    """Top headlines for the sidebar: enriched articles by composite rank, with
-    recent items filling in if there aren't enough enriched yet."""
+    """Top headlines for the sidebar: enriched articles by composite rank,
+    one entry per story (cluster/title de-duplicated), with recent items
+    filling in if there aren't enough enriched yet."""
     rows = conn.execute(
         """SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
            WHERE s.active = 1 AND a.status = 'enriched'
            ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
            LIMIT 5000""",
     ).fetchall()
-    arts = rank_articles(conn, [Article.from_row(r) for r in rows])[:limit]
+    ranked = rank_articles(conn, [Article.from_row(r) for r in rows])
+    arts = unique_stories(ranked, limit)
     if len(arts) < limit:
-        seen = {a.id for a in arts}
+        seen_ids = {a.id for a in arts}
         extra = conn.execute(
             """SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
                WHERE s.active = 1
                ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT ?""",
-            (limit * 2,),
+            (limit * 3,),
         ).fetchall()
-        for r in extra:
-            a = Article.from_row(r)
-            if a.id not in seen:
-                arts.append(a)
-            if len(arts) >= limit:
-                break
-    return arts[:limit]
+        fill = [Article.from_row(r) for r in extra if r["id"] not in seen_ids]
+        arts = unique_stories(arts + fill, limit)
+    return arts
 
 
 def companies(conn: sqlite3.Connection) -> list[str]:
