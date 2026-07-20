@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Resources — AI Intelligence Platform{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1><span>📚</span> Resources</h1>
+  <p>Learning paths, playbooks, and reference material — from first principles to executive strategy.</p>
+</div>
+
+<!-- Learning paths -->
+<section class="section">
+  <div class="section__head"><h2>Learning paths</h2><span class="rule"></span></div>
+  <div class="grid grid--2">
+    {% for p in paths %}
+      <div class="path" id="{{ p.slug }}">
+        <div class="path__head">
+          <span class="path__emoji">{{ p.emoji }}</span>
+          <div><div class="path__name">{{ p.name }}</div><div class="path__aud">{{ p.audience }}</div></div>
+        </div>
+        <p class="path__sum">{{ p.summary }}</p>
+        <ul class="steps">
+          {% for st in p.steps %}
+            <li><div class="st">{{ st.title }}</div><div class="sd">{{ st.detail }}</div></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- Playbooks / guides / templates -->
+<section class="section">
+  <div class="section__head"><h2>Playbooks &amp; guides</h2><span class="rule"></span></div>
+  <div class="grid grid--3">
+    {% for r in resources %}
+      <div class="card">
+        <div class="res__kind">{{ r.kind }}</div>
+        <h3 style="cursor:default">{{ r.title }}</h3>
+        <p class="why">{{ r.blurb }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- Glossary -->
+<section class="section">
+  <div class="section__head"><h2>AI glossary</h2><span class="rule"></span></div>
+  <div class="panel">
+    <dl class="glossary" style="margin:0">
+      {% for g in glossary %}
+        <dt>{{ g.term }}</dt>
+        <dd>{{ g.definition }}</dd>
+      {% endfor %}
+    </dl>
+  </div>
+</section>
+{% endblock %}

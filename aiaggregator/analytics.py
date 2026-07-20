@@ -58,6 +58,45 @@ async def resolve_pending(conn: sqlite3.Connection, limit: int = 50) -> int:
     return done
 
 
+def _weekly_trend(conn: sqlite3.Connection, weeks: int = 8) -> list[dict]:
+    """Views per week for the last `weeks` weeks, oldest → newest.
+
+    Buckets by calendar-day distance from today (robust to the ISO/offset ts
+    format), so week 0 is the current rolling 7-day window.
+    """
+    from datetime import date
+
+    rows = conn.execute(
+        """SELECT substr(ts, 1, 10) d, COUNT(*) hits
+           FROM visits WHERE ts >= datetime('now', ?)
+           GROUP BY d""",
+        (f"-{weeks * 7} days",),
+    ).fetchall()
+
+    today = date.today()
+    buckets = [0] * weeks
+    for r in rows:
+        try:
+            day = date.fromisoformat(r["d"])
+        except (ValueError, TypeError):
+            continue
+        idx = (today - day).days // 7
+        if 0 <= idx < weeks:
+            buckets[idx] += r["hits"]
+
+    ordered = list(reversed(buckets))  # oldest first
+    peak = max(ordered) or 1
+    out = []
+    for i, views in enumerate(ordered):
+        ago = weeks - 1 - i
+        out.append({
+            "label": "This week" if ago == 0 else f"{ago}w ago",
+            "views": views,
+            "bar": round(views / peak * 100),
+        })
+    return out
+
+
 def summary(conn: sqlite3.Connection, days: int = 30) -> dict:
     window = (f"-{days} days",)
 
@@ -68,6 +107,23 @@ def summary(conn: sqlite3.Connection, days: int = 30) -> dict:
         """SELECT COUNT(*) visits, COUNT(DISTINCT ip) visitors
            FROM visits WHERE ts >= datetime('now', ?)""", window
     ).fetchone()
+
+    # Rolling weekly windows: current 7 days vs the prior 7 days (for the trend %).
+    this_week = conn.execute(
+        """SELECT COUNT(*) visits, COUNT(DISTINCT ip) visitors
+           FROM visits WHERE ts >= datetime('now', '-7 days')""").fetchone()
+    prev_week = conn.execute(
+        """SELECT COUNT(*) visits FROM visits
+           WHERE ts >= datetime('now', '-14 days') AND ts < datetime('now', '-7 days')"""
+    ).fetchone()
+
+    weekly_views = this_week["visits"] or 0
+    prev_views = prev_week["visits"] or 0
+    if prev_views:
+        wow = round((weekly_views - prev_views) / prev_views * 100)
+    else:
+        wow = 100 if weekly_views else 0
+    wow = max(-100, min(999, wow))  # clamp: a low-traffic prior week skews the ratio
 
     by_country = q(
         """SELECT COALESCE(g.country,'Unknown') country, COUNT(*) hits,
@@ -87,19 +143,15 @@ def summary(conn: sqlite3.Connection, days: int = 30) -> dict:
         """SELECT path, COUNT(*) hits FROM visits
            WHERE ts >= datetime('now', ?) GROUP BY path ORDER BY hits DESC LIMIT 25""")
 
-    recent = conn.execute(
-        """SELECT v.ts, v.ip, v.path, v.user_agent,
-                  COALESCE(g.city,'') city, COALESCE(g.region,'') region,
-                  COALESCE(g.country,'') country
-           FROM visits v LEFT JOIN ip_geo g ON g.ip = v.ip
-           ORDER BY v.ts DESC LIMIT 100""").fetchall()
-
     return {
         "days": days,
         "visits": totals["visits"] or 0,
         "visitors": totals["visitors"] or 0,
+        "weekly_views": weekly_views,
+        "weekly_unique": this_week["visitors"] or 0,
+        "wow": wow,
+        "trend": _weekly_trend(conn),
         "by_country": by_country,
         "by_city": by_city,
         "by_page": by_page,
-        "recent": recent,
     }

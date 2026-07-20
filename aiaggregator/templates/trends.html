@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Trends — AI Intelligence Platform{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1><span>🔥</span> Trends</h1>
+  <p>The direction of AI evolution — adoption maturity, market momentum, and outlook across the seven forces shaping the field.</p>
+</div>
+
+<div class="grid grid--2">
+  {% for d in trends %}
+  {% set t = d.trend %}
+  <div class="trend">
+    <div class="trend__head">
+      <span class="trend__emoji">{{ t.emoji }}</span>
+      <div style="flex:1">
+        <div class="trend__title">{{ t.name }}</div>
+        <div class="trend__blurb">{{ t.blurb }}</div>
+      </div>
+      <span class="maturity">{{ d.maturity }}</span>
+    </div>
+
+    <div class="trend__meta">
+      <div class="metric">
+        <div class="metric__k tnum">{{ d.count }}</div>
+        <div class="metric__l">Stories · 14d</div>
+      </div>
+      <div class="metric">
+        <div class="metric__k tnum {{ 'mom-up' if d.momentum > 0 else ('mom-down' if d.momentum < 0 else '') }}">
+          {{ '+' if d.momentum > 0 else '' }}{{ d.momentum }}%
+        </div>
+        <div class="metric__l">Momentum</div>
+      </div>
+      <div class="metric">
+        <div class="metric__k">{{ d.impact }}</div>
+        <div class="metric__l">Industry impact</div>
+      </div>
+    </div>
+
+    <div class="trend__outlook">{{ d.outlook }}</div>
+
+    {% if d.top %}
+    <ul class="trend__top">
+      {% for a in d.top %}
+        <li>
+          <a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title }}</a>
+          <span class="src">{{ srcmap.get(a.source_id, ('Source',''))[0] }} · {{ (a.published_at | timeago) or (a.fetched_at | timeago) }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

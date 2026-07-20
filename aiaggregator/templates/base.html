@@ -3,196 +3,289 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}AI Aggregator — AI &amp; Agentic-AI News{% endblock %}</title>
+  <title>{% block title %}AI Intelligence Platform{% endblock %}</title>
 
-  {# Absolute base for link-preview (Open Graph) URLs: configured public_url, else request host #}
   {% set base = public_url if public_url else (request.base_url|string).rstrip('/') %}
-  {% set og_title = self.title() %}
-  {% set og_desc = "AI & Agentic-AI news, aggregated from public RSS feeds and summarized locally — labs, research, and major tech outlets, ranked and clustered." %}
+  {% set og_desc = "An AI intelligence command center — daily briefing, trends, technology, and business intelligence on AI, with technical and business impact scoring." %}
   <meta name="description" content="{{ og_desc }}">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="AI Aggregator">
-  <meta property="og:title" content="{{ og_title }}">
+  <meta property="og:site_name" content="AI Intelligence Platform">
+  <meta property="og:title" content="{{ self.title() }}">
   <meta property="og:description" content="{{ og_desc }}">
   <meta property="og:url" content="{{ base }}{{ request.url.path }}">
   <meta property="og:image" content="{{ base }}/static/og.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{{ og_title }}">
-  <meta name="twitter:description" content="{{ og_desc }}">
-  <meta name="twitter:image" content="{{ base }}/static/og.png">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
-  <style>
-    /* Editorial theme: warm paper background, deep-red accent, serif display type */
-    :root { --accent:#a31621; }
-    body { background:#faf7f0; color:#191919; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
-    .accent { color: var(--accent); }
-    .bg-accent { background: var(--accent); }
-    .bg-white { background:#fffdf7 !important; }
-    article, aside > div, .rounded-lg { border-color:#e6dfd0 !important; border-radius:2px !important; }
-    header { border-bottom:3px double #191919 !important; }
-    h1, h2, h3, article a.font-bold, aside li a { font-family:"Playfair Display", Georgia, serif; letter-spacing:-0.01em; }
-    article p { font-family:"Source Serif 4", Georgia, serif; }
-    /* Banner: a wide masthead strip cropped to ~10.7:1 so it fills the header
-       band edge-to-edge without an awkward crop. Pinned with the masthead. */
-    .banner-hero {
-      background-image: url('/static/banner-strip.jpg');
-      background-size: cover;
-      background-position: center center;
-    }
-    nav a.nav-active { color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
-    /* Nasdaq AI stock tape: ink-black strip, seamless marquee (content rendered twice) */
-    #ticker-bar { background:#191919; display:none; }
-    .ticker-track { display:inline-flex; white-space:nowrap; animation:ticker-scroll 55s linear infinite; }
-    .ticker-track:hover { animation-play-state:paused; }
-    @keyframes ticker-scroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
-    .ticker-item { display:inline-flex; align-items:baseline; gap:.4rem; padding:.35rem 1.1rem; font-size:.75rem; }
-    .ticker-item .sym { color:#faf7f0; font-weight:700; letter-spacing:.04em; }
-    .ticker-item .px { color:#c9c2b4; font-variant-numeric:tabular-nums; }
-    .ticker-item .up { color:#7fbf8e; font-variant-numeric:tabular-nums; }
-    .ticker-item .down { color:#e08a8a; font-variant-numeric:tabular-nums; }
-    .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .line-clamp-3 { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-    [x-cloak]{ display:none !important; }
-    /* refresh button busy state (htmx adds .htmx-request to the form while loading) */
-    .hx-busy{ display:none; }
-    .htmx-request .hx-idle{ display:none; }
-    .htmx-request .hx-busy{ display:inline; }
-  </style>
-</head>
-<body class="min-h-screen">
-  <!-- Banner + masthead: pinned together while scrolling -->
-  <div class="sticky top-0 z-40" style="background:#faf7f0;">
-  <div class="max-w-7xl mx-auto px-4 pt-4">
-    <div class="banner-hero w-full h-20 sm:h-28 rounded-lg border border-gray-200"></div>
-  </div>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-  <!-- Masthead -->
-  <header class="bg-white border-b-2 border-gray-900">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-      <a href="/" class="flex items-center gap-2 sm:gap-3 min-w-0">
-        <img src="/static/avatar.jpg" alt=""
-             class="h-9 w-9 sm:h-11 sm:w-11 rounded-full object-cover ring-2 ring-gray-200 shrink-0"
-             onerror="this.style.display='none'">
-        <span class="leading-none whitespace-nowrap">
-          <span class="text-xl sm:text-2xl font-extrabold tracking-tight">AI</span><span class="text-xl sm:text-2xl font-extrabold tracking-tight accent">Aggregator</span>
-        </span>
-      </a>
-      {% set path = request.url.path %}
-      <nav class="ml-auto flex items-center gap-3 sm:gap-4 text-sm font-semibold">
-        <a href="/" class="hover:accent {{ 'nav-active' if path == '/' }}">Home</a>
-        <a href="/market" class="hover:accent {{ 'nav-active' if path.startswith('/market') }}">AI News</a>
-        <a href="/tech" class="hover:accent {{ 'nav-active' if path == '/tech' }}">Tech News</a>
-        <a href="/industry" class="hover:accent {{ 'nav-active' if path == '/industry' }}">Industry View</a>
-        <a href="/architecture" class="hover:accent {{ 'nav-active' if path == '/architecture' }}">Architecture</a>
-        <a href="/blogs" class="hover:accent {{ 'nav-active' if path == '/blogs' }}">Blogs</a>
-        <a href="/podcasts" class="hover:accent {{ 'nav-active' if path == '/podcasts' }}">Podcasts</a>
-        <a href="/health" class="text-gray-500 hover:accent {{ 'nav-active' if path == '/health' }}">Sources</a>
+  <!-- Theme: applied before paint to avoid a flash -->
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme');
+      if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+  {% set path = request.url.path %}
+
+  <!-- ===== Masthead ===== -->
+  <header class="masthead">
+    <div class="container">
+      <div class="banner-hero" role="img" aria-label="AI Intelligence"></div>
+
+      <div class="masthead__row">
+        <a href="/" class="brand">
+          <img class="brand__avatar" src="/static/avatar.jpg" alt="" onerror="this.style.display='none'">
+          <span class="brand__word">AI<span class="brand__ai">&nbsp;Intelligence</span></span>
+        </a>
+
+        <div class="masthead__tools">
+          <form class="searchbox" action="/technology" method="get"
+                hx-get="/feed" hx-target="#search-results" hx-trigger="submit"
+                onsubmit="document.getElementById('search-panel').style.display='block'">
+            <span class="ico">⌕</span>
+            <input type="search" name="search" placeholder="Search intelligence…"
+                   aria-label="Search">
+          </form>
+          <button class="iconbtn" title="Personalize" aria-label="Personalize"
+                  @click="$dispatch('open-prefs')">⚙</button>
+          <button class="iconbtn" title="Toggle theme" aria-label="Toggle theme"
+                  onclick="toggleTheme()"><span id="theme-ico">🌙</span></button>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="/"            class="{{ 'active' if path == '/' }}"><span class="ico">🏠</span> Briefing</a>
+        <a href="/trends"      class="{{ 'active' if path.startswith('/trends') }}"><span class="ico">🔥</span> Trends</a>
+        <a href="/technology"  class="{{ 'active' if path.startswith('/technology') }}"><span class="ico">💻</span> Technology</a>
+        <a href="/innovation"  class="{{ 'active' if path.startswith('/innovation') }}"><span class="ico">🚀</span> Innovation</a>
+        <a href="/business"    class="{{ 'active' if path.startswith('/business') }}"><span class="ico">🏢</span> Business</a>
+        <a href="/blogs"       class="{{ 'active' if path.startswith('/blogs') }}"><span class="ico">📝</span> Blogs</a>
+        <a href="/podcasts"    class="{{ 'active' if path.startswith('/podcasts') }}"><span class="ico">🎙</span> Podcasts</a>
+        <a href="/resources"   class="{{ 'active' if path.startswith('/resources') }}"><span class="ico">📚</span> Resources</a>
       </nav>
     </div>
+
+    <!-- Market-signals ticker -->
+    <div class="ticker" id="ticker" style="display:none">
+      <div class="ticker__track" id="ticker-track"></div>
+    </div>
   </header>
-  </div>
 
-  <!-- Nasdaq AI stock tape -->
-  <div id="ticker-bar" class="overflow-hidden">
-    <div class="ticker-track" id="ticker-track"></div>
-  </div>
-  <script>
-    fetch('/ticker').then(r => r.json()).then(quotes => {
-      if (!quotes || !quotes.length) return;
-      const html = quotes.map(q => {
-        const up = q.change_pct >= 0;
-        const arrow = up ? '▲' : '▼';
-        const cls = up ? 'up' : 'down';
-        return '<span class="ticker-item"><span class="sym">' + q.symbol + '</span>' +
-               '<span class="px">' + q.price.toFixed(2) + '</span>' +
-               '<span class="' + cls + '">' + arrow + ' ' + Math.abs(q.change_pct).toFixed(2) + '%</span></span>';
-      }).join('');
-      const track = document.getElementById('ticker-track');
-      track.innerHTML = html + html;  // duplicated for a seamless loop
-      document.getElementById('ticker-bar').style.display = 'block';
-    }).catch(() => {});
-  </script>
+  <main class="container">
+    <!-- Global search results (hidden until used) -->
+    <section id="search-panel" style="display:none" class="section">
+      <div class="section__head"><h2>Search results</h2><span class="rule"></span>
+        <a href="#" onclick="document.getElementById('search-panel').style.display='none';return false">Clear</a></div>
+      <div class="grid grid--3 js-sortable" id="search-results"></div>
+    </section>
 
-  <main class="max-w-7xl mx-auto px-4 py-6">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="max-w-7xl mx-auto px-4 py-8 text-xs text-gray-400 border-t border-gray-200 mt-8">
-    AI Aggregator — aggregated from public RSS feeds, enriched locally with Ollama. No paid APIs.
+  <footer class="site">
+    <div class="container" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+      <span>AI Intelligence Platform — aggregated from public RSS feeds, enriched locally with
+      Ollama. Impact scoring is heuristic; perspectives are generated on-device. No paid APIs.</span>
+      <a href="/health" style="margin-left:auto;color:var(--muted);font-weight:600">Sources &amp; health →</a>
+    </div>
   </footer>
 
-  <!-- In-page article reader: cards dispatch 'open-article' with the story payload -->
-  <script>
-    function openArticle(p){ window.dispatchEvent(new CustomEvent('open-article', {detail: p})); return false; }
-  </script>
-  <div x-data="{ show:false, a:{}, detail:'', loading:false,
-                 open(p){ this.a = p; this.show = true; this.detail = ''; this.loading = !!p.id;
-                   if (p.id) fetch('/article/' + p.id + '/summary')
-                     .then(r => r.json())
-                     .then(d => { if (d.id === this.a.id) { this.detail = d.summary; this.loading = false } })
-                     .catch(() => { this.loading = false }) } }"
-       @open-article.window="open($event.detail)"
-       @keydown.escape.window="show = false"
-       x-show="show" x-cloak
-       class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
-    <div class="absolute inset-0 bg-black/50" @click="show = false"></div>
-    <div class="relative bg-white w-full sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-xl shadow-2xl p-6"
-         x-transition.opacity>
-      <button type="button" @click="show = false" aria-label="Close"
-              class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-xl leading-none">&times;</button>
+  <!-- ===== Reader modal (5 perspectives) ===== -->
+  <div x-data="reader()" x-show="show" x-cloak class="modal"
+       @open-article.window="open($event.detail)" @keydown.escape.window="show=false">
+    <div class="modal__scrim" @click="show=false"></div>
+    <div class="modal__panel">
+      <button class="modal__close" @click="show=false" aria-label="Close">&times;</button>
+      <div class="eyebrow"><span x-text="a.label"></span>
+        <span class="time" x-text="a.time"></span></div>
+      <h2 x-text="a.title"></h2>
 
-      <div class="flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold pr-8">
-        <span class="accent" x-text="a.label"></span>
-        <template x-if="(a.importance||0) >= 70">
-          <span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>
-        </template>
-        <span class="text-gray-400 font-normal normal-case" x-text="a.time"></span>
+      <div class="scores" style="max-width:320px">
+        <div class="score" :class="'t-'+a.tech_token">
+          <div class="score__top"><span>Technical</span><span class="score__val" x-text="a.tech"></span></div>
+          <div class="score__bar"><div class="score__fill" :style="'width:'+a.tech+'%'"></div></div>
+        </div>
+        <div class="score" :class="'t-'+a.biz_token">
+          <div class="score__top"><span>Business</span><span class="score__val" x-text="a.biz"></span></div>
+          <div class="score__bar"><div class="score__fill" :style="'width:'+a.biz+'%'"></div></div>
+        </div>
       </div>
 
-      <h2 class="mt-2 text-xl sm:text-2xl font-extrabold leading-snug" x-text="a.title"></h2>
-      <p class="mt-3 text-sm sm:text-base text-gray-700 leading-relaxed" x-text="detail || a.summary"></p>
-      <div x-show="loading" class="mt-2 flex items-center gap-2 text-xs text-gray-400 italic">
-        <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-        </svg>
-        Expanding summary…
+      <div class="persp-tabs">
+        <template x-for="t in tabs" :key="t.key">
+          <button class="persp-tab" :class="{active: active===t.key}" @click="active=t.key"
+                  x-text="t.label"></button>
+        </template>
       </div>
 
-      <div class="mt-3 flex flex-wrap gap-1.5" x-show="(a.tags||[]).length">
-        <template x-for="t in (a.tags||[])">
-          <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600" x-text="t"></span>
+      <div class="persp-body">
+        <template x-if="loading && !bodies[active]">
+          <div class="persp-loading"><span class="spin"></span> Generating perspective…</div>
         </template>
+        <p x-show="!loading || bodies[active]" x-text="bodies[active] || a.summary"></p>
+      </div>
+
+      <div class="action" style="margin-top:14px" x-show="a.action">
+        <span class="ico">✦</span><span x-text="a.action"></span>
       </div>
 
       <template x-if="(a.extras||[]).length">
-        <div class="mt-4 border-t border-gray-100 pt-3">
-          <div class="text-xs font-semibold text-gray-500 mb-2"
-               x-text="'Also reported by ' + a.extras.length + ' other source' + (a.extras.length > 1 ? 's' : '')"></div>
-          <ul class="space-y-1.5">
-            <template x-for="e in a.extras">
-              <li class="text-sm">
-                <a :href="e.url" target="_blank" rel="noopener" class="text-gray-700 hover:accent" x-text="e.title"></a>
-                <span class="text-gray-400 text-xs" x-text="'· ' + e.source"></span>
-              </li>
+        <div class="also" style="margin-top:14px">
+          <div class="muted" style="font-size:12px;font-weight:600;margin-bottom:6px"
+               x-text="'Also reported by ' + a.extras.length + ' other source' + (a.extras.length>1?'s':'')"></div>
+          <ul>
+            <template x-for="e in a.extras" :key="e.url">
+              <li><a :href="e.url" target="_blank" rel="noopener" x-text="e.title"></a>
+                <span class="src" x-text="'· ' + e.source"></span></li>
             </template>
           </ul>
         </div>
       </template>
 
-      <div class="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
-        <a :href="a.url" target="_blank" rel="noopener" @click="show = false"
-           class="bg-accent text-white text-sm font-semibold px-4 py-2 rounded hover:opacity-90">Read full story ↗</a>
-        <span class="text-xs text-gray-400" x-text="a.source"></span>
+      <div style="margin-top:18px;display:flex;gap:10px;align-items:center">
+        <a :href="a.url" target="_blank" rel="noopener" class="btn btn--primary" @click="show=false">Read full story ↗</a>
+        <span class="src" x-text="a.source"></span>
       </div>
     </div>
   </div>
+
+  <!-- ===== Personalization drawer ===== -->
+  <div x-data="prefs()" x-show="show" x-cloak class="drawer"
+       @open-prefs.window="show=true" @keydown.escape.window="show=false">
+    <div class="drawer__scrim" @click="save()"></div>
+    <div class="drawer__panel">
+      <h2>Personalize</h2>
+      <p class="lead">Tailor the platform to your role and interests. Saved on this device.</p>
+
+      <div class="field">
+        <label>Your role</label>
+        <select class="select" x-model="role">
+          <template x-for="r in roles" :key="r">
+            <option :value="r" x-text="r"></option>
+          </template>
+        </select>
+        <p class="muted" style="font-size:11.5px;margin-top:6px">Sets the default perspective opened in the reader.</p>
+      </div>
+
+      <div class="field">
+        <label>Interests</label>
+        <div class="pills">
+          <template x-for="i in allInterests" :key="i">
+            <span class="pill" :class="{on: interests.includes(i)}" @click="toggle(i)" x-text="i"></span>
+          </template>
+        </div>
+        <p class="muted" style="font-size:11.5px;margin-top:8px">Matching stories are highlighted and floated to the top.</p>
+      </div>
+
+      <button class="btn btn--primary" @click="save()">Save & apply</button>
+    </div>
+  </div>
+
+  <!-- ===== Behaviour ===== -->
+  <script>
+    // Theme toggle -----------------------------------------------------------
+    function currentTheme(){ return document.documentElement.getAttribute('data-theme'); }
+    function syncThemeIcon(){ var i=document.getElementById('theme-ico'); if(i) i.textContent = currentTheme()==='dark' ? '☀️' : '🌙'; }
+    function toggleTheme(){
+      var t = currentTheme()==='dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+      localStorage.setItem('theme', t); syncThemeIcon();
+    }
+    syncThemeIcon();
+
+    // Personalization model --------------------------------------------------
+    var INTEREST_KEYWORDS = {
+      'AI Agents':     ['agents','agentic','ai-agents','autonomous'],
+      'LLMs':          ['llms','llm','language model','gpt','claude','gemini','llama'],
+      'Coding AI':     ['developer-tools','coding','copilot','code'],
+      'Enterprise AI': ['enterprise-ai','product','enterprise','adoption'],
+      'Robotics':      ['robotics','robot','embodied'],
+      'AI Strategy':   ['policy','regulation','funding','strategy','business'],
+      'Security':      ['safety','security','alignment','risk'],
+    };
+    var ROLE_PERSPECTIVE = {
+      'Developer':'technical', 'Architect':'architecture', 'Product Manager':'business',
+      'Engineering Leader':'technical', 'CTO/CIO':'leadership', 'CEO/Founder':'leadership',
+    };
+    function getPrefs(){
+      try { return JSON.parse(localStorage.getItem('prefs')) || {}; } catch(e){ return {}; }
+    }
+    function defaultPerspective(){
+      var r = (getPrefs().role) || '';
+      return ROLE_PERSPECTIVE[r] || 'quick';
+    }
+    function applyPersonalization(){
+      var p = getPrefs(); var ints = p.interests || [];
+      var kws = [];
+      ints.forEach(function(i){ (INTEREST_KEYWORDS[i]||[]).forEach(function(k){ kws.push(k); }); });
+      document.querySelectorAll('.card[data-tags]').forEach(function(card){
+        var hay = (card.getAttribute('data-tags')||'').toLowerCase();
+        var match = kws.length>0 && kws.some(function(k){ return hay.indexOf(k)>=0; });
+        card.classList.toggle('is-foryou', match);
+      });
+      // float matched cards to the top within each sortable grid
+      document.querySelectorAll('.js-sortable').forEach(function(grid){
+        var cards = Array.prototype.slice.call(grid.children);
+        cards.filter(function(c){ return c.classList.contains('is-foryou'); })
+             .reverse().forEach(function(c){ grid.insertBefore(c, grid.firstChild); });
+      });
+    }
+    document.addEventListener('DOMContentLoaded', applyPersonalization);
+    document.body.addEventListener('htmx:afterSwap', applyPersonalization);
+
+    function openArticle(p){ window.dispatchEvent(new CustomEvent('open-article',{detail:p})); return false; }
+
+    // Alpine components ------------------------------------------------------
+    function reader(){
+      return {
+        show:false, a:{}, active:'quick', loading:false, bodies:{},
+        tabs:[
+          {key:'quick', label:'Quick Summary'}, {key:'technical', label:'Technical'},
+          {key:'architecture', label:'Architecture'}, {key:'business', label:'Business'},
+          {key:'leadership', label:'Leadership'},
+        ],
+        open(p){
+          this.a = p; this.show = true; this.bodies = {}; this.active = defaultPerspective();
+          this.loading = !!p.id;
+          if (p.id) fetch('/article/'+p.id+'/perspectives')
+            .then(function(r){return r.json();})
+            .then((d)=>{ if(this.a.id===d.id){ this.bodies = d.perspectives||{}; this.loading=false; } })
+            .catch(()=>{ this.loading=false; });
+        },
+      };
+    }
+    function prefs(){
+      return {
+        show:false,
+        roles:['Developer','Architect','Product Manager','Engineering Leader','CTO/CIO','CEO/Founder'],
+        allInterests:Object.keys(INTEREST_KEYWORDS),
+        role: getPrefs().role || 'Developer',
+        interests: getPrefs().interests || [],
+        toggle(i){ var x=this.interests.indexOf(i); if(x>=0) this.interests.splice(x,1); else this.interests.push(i); },
+        save(){ localStorage.setItem('prefs', JSON.stringify({role:this.role, interests:this.interests})); this.show=false; applyPersonalization(); },
+      };
+    }
+
+    // Market-signals ticker --------------------------------------------------
+    fetch('/ticker').then(function(r){return r.json();}).then(function(q){
+      if(!q||!q.length) return;
+      var html = q.map(function(x){
+        var up = x.change_pct>=0, cls=up?'up':'down', arw=up?'▲':'▼';
+        return '<span class="ticker__item"><span class="sym">'+x.symbol+'</span>'+
+               '<span class="px tnum">'+x.price.toFixed(2)+'</span>'+
+               '<span class="'+cls+' tnum">'+arw+' '+Math.abs(x.change_pct).toFixed(2)+'%</span></span>';
+      }).join('');
+      document.getElementById('ticker-track').innerHTML = html+html;
+      document.getElementById('ticker').style.display='block';
+    }).catch(function(){});
+  </script>
 </body>
 </html>

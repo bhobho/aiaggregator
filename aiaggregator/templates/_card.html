@@ -1,77 +1,69 @@
-{% set a = g.lead %}
-{% set src = srcmap.get(a.source_id, ('Source','news')) %}
-{% set scat = src[1] %}
-{% set label = (a.companies[0] if a.companies else src[0]) %}
-{% set lcolor = 'accent' %}
-{% set featured = featured|default(false) %}
+{# Renders one intelligence card from a `card` dict:
+   { a, extras, src, category, score{technical,business,*_token,*_label,why,action} }
+   Optional flags: feature (larger hero card), compact (title-only). #}
+{% set a = card.a %}
+{% set s = card.score %}
+{% set feature = feature|default(false) %}
 {% set compact = compact|default(false) %}
+{% set label = (a.companies[0] if a.companies else card.src) %}
+{% set data_tags = (a.tags + a.companies + [card.category]) | join(' ') %}
 
-{# payload for the in-page reader modal (see base.html) #}
-{% set extras_payload = [] %}
-{% for e in g.extras %}
-  {% set _ = extras_payload.append({'title': e.title, 'url': e.url,
-                                    'source': srcmap.get(e.source_id, ('Source',''))[0]}) %}
-{% endfor %}
 {% set payload = {
-  'id': a.id,
-  'title': a.title,
-  'url': a.url,
-  'label': label,
-  'source': src[0],
+  'id': a.id, 'title': a.title, 'url': a.url, 'label': label, 'source': card.src,
   'time': (a.published_at | timeago) or (a.fetched_at | timeago),
-  'summary': a.summary or a.raw_summary[:400],
-  'tags': a.tags,
-  'importance': a.importance or 0,
-  'extras': extras_payload,
+  'summary': a.summary or a.raw_summary[:400], 'tags': a.tags,
+  'why': s.why, 'action': s.action,
+  'tech': s.technical, 'biz': s.business,
+  'tech_token': s.technical_token, 'biz_token': s.business_token,
+  'extras': card.extras,
 } %}
 
-<article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow
-                {% if featured %}p-6{% else %}p-4{% endif %}"
-         x-data="{ open:false }">
-  <div class="flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold">
-    <span class="{{ lcolor }}">{{ label }}</span>
-    {% set imp = a.importance or 0 %}
-    {% if imp >= 70 %}<span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>{% endif %}
-    <span class="text-gray-400 font-normal normal-case ml-auto">{{ a.published_at | timeago or (a.fetched_at | timeago) }}</span>
+<article class="card{% if feature %} card--feature{% endif %}" data-tags="{{ data_tags | lower }}">
+  <div class="eyebrow">
+    <span>{{ label }}</span>
+    {% if (a.importance or 0) >= 70 %}<span class="badge t-critical">Major</span>{% endif %}
+    <span class="time">{{ (a.published_at | timeago) or (a.fetched_at | timeago) }}</span>
   </div>
 
-  <a href="{{ a.url }}" target="_blank" rel="noopener"
-     onclick='return openArticle({{ payload | tojson }})'
-     class="block mt-2 font-bold text-gray-900 hover:accent leading-snug cursor-pointer
-            {% if featured %}text-2xl{% elif compact %}text-sm line-clamp-3{% else %}text-base line-clamp-2{% endif %}">
-    {{ a.title }}
-  </a>
+  <h3 onclick='openArticle({{ payload | tojson }})' class="{% if not feature %}clamp3{% endif %}">{{ a.title }}</h3>
 
   {% if not compact %}
-    {% if a.summary %}
-      <p class="mt-2 text-sm text-gray-600 {% if featured %}line-clamp-4{% else %}line-clamp-3{% endif %}">{{ a.summary }}</p>
-    {% elif a.status == 'new' %}
-      <p class="mt-2 text-sm text-gray-400 italic line-clamp-2">{{ a.raw_summary[:160] }} · summarizing…</p>
-    {% else %}
-      <p class="mt-2 text-sm text-gray-600 line-clamp-2">{{ a.raw_summary[:160] }}</p>
+    <p class="why {% if feature %}clamp3{% else %}clamp2{% endif %}">{{ s.why }}</p>
+
+    <div class="scores">
+      <div class="score t-{{ s.technical_token }}">
+        <div class="score__top"><span>Tech</span><span class="score__val">{{ s.technical }}</span></div>
+        <div class="score__bar"><div class="score__fill" style="width: {{ s.technical }}%"></div></div>
+      </div>
+      <div class="score t-{{ s.business_token }}">
+        <div class="score__top"><span>Business</span><span class="score__val">{{ s.business }}</span></div>
+        <div class="score__bar"><div class="score__fill" style="width: {{ s.business }}%"></div></div>
+      </div>
+    </div>
+
+    {% if feature and s.action %}
+      <div class="action"><span class="ico">✦</span><span>{{ s.action }}</span></div>
     {% endif %}
 
-    <div class="mt-3 flex flex-wrap items-center gap-1.5">
-      {% for t in a.tags %}
-      <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ t }}</span>
-      {% endfor %}
-      <span class="text-[11px] text-gray-400 ml-auto">{{ src[0] }}</span>
-    </div>
+    {% if a.tags %}
+      <div class="tags">
+        {% for t in a.tags[:4] %}<span class="tag">{{ t }}</span>{% endfor %}
+      </div>
+    {% endif %}
 
-    {% if g.extras %}
-    <div class="mt-3 border-t border-gray-100 pt-2">
-      <button type="button" @click="open=!open" class="text-xs accent font-semibold">
-        <span x-show="!open">Also reported by {{ g.extras|length }} other source{{ 's' if g.extras|length>1 else '' }}</span>
-        <span x-show="open" x-cloak>Hide sources</span>
-      </button>
-      <ul x-show="open" x-cloak class="mt-2 space-y-1">
-        {% for e in g.extras %}
-        {% set esrc = srcmap.get(e.source_id, ('Source','news')) %}
-        <li class="text-xs"><a href="{{ e.url }}" target="_blank" rel="noopener" class="text-gray-700 hover:accent">{{ e.title }}</a>
-          <span class="text-gray-400">· {{ esrc[0] }}</span></li>
-        {% endfor %}
-      </ul>
-    </div>
+    {% if card.extras %}
+      <details class="also">
+        <summary>Also reported by {{ card.extras|length }} other source{{ 's' if card.extras|length > 1 else '' }}</summary>
+        <ul>
+          {% for e in card.extras %}
+            <li><a href="{{ e.url }}" target="_blank" rel="noopener">{{ e.title }}</a> <span class="src">· {{ e.source }}</span></li>
+          {% endfor %}
+        </ul>
+      </details>
     {% endif %}
   {% endif %}
+
+  <div class="card__foot">
+    <span class="src">{{ card.src }}</span>
+  </div>
 </article>

@@ -1,268 +1,297 @@
-"""Dashboard routes: feed and filtered/searched partials."""
+"""Platform routes: the 8-tab AI Intelligence Platform IA.
+
+Briefing (dashboard) · Trends · Technology · Innovation · Business · Blogs ·
+Podcasts · Resources — all layered on the existing ingest/enrich/rank pipeline.
+Each article is decorated with heuristic technical/business impact scores
+(see scoring.py) before it reaches a template.
+"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+import json
 
-from .. import db, market as marketmod, queries, ticker as tickermod, vendors as vendormod
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+
+from .. import db, queries, resources, scoring, ticker as tickermod, trends as trendmod
+from ..enrich import perspectives as persp_mod
 from ..enrich import summarize as summarize_mod
 
 router = APIRouter()
 
-
-def _to_int(v) -> int | None:
-    """Coerce a query value to int, treating '' / invalid as None.
-
-    Form selects submit '' for the 'Any' option; FastAPI int params would 422 on
-    that, so filters are parsed as strings here and coerced safely.
-    """
-    try:
-        return int(v)
-    except (TypeError, ValueError):
-        return None
+# Categories that belong to the "Technology" lens (everything AI-technical).
+TECH_EXCLUDE = ("market", "industry", "blog", "podcast")
+# Tags that mark an item as innovation / commercialization signal.
+INNOVATION_TAGS = {"product", "funding", "open-source"}
 
 
-def _filters(company, category, days, min_importance, sort) -> queries.FeedFilters:
-    return queries.FeedFilters(
-        company=company or None,
-        category=category or None,
-        days=_to_int(days),
-        min_importance=_to_int(min_importance),
-        sort=sort or "newest",
-    )
+# ---- decoration -------------------------------------------------------------
+
+def _cards(conn, groups: list[dict]) -> list[dict]:
+    """Turn clustered story groups into render-ready cards with impact scores."""
+    srcmap = queries.source_name_map(conn)
+    sizes = db.cluster_sizes(conn)
+    out: list[dict] = []
+    for g in groups:
+        a = g["lead"]
+        name, cat = srcmap.get(a.source_id, ("Source", "news"))
+        csize = sizes.get(a.cluster_id, 1) if a.cluster_id else 1
+        extras = [{
+            "title": e.title,
+            "url": e.url,
+            "source": srcmap.get(e.source_id, ("Source", ""))[0],
+        } for e in g["extras"]]
+        out.append({
+            "a": a,
+            "extras": extras,
+            "src": name,
+            "category": cat,
+            "score": scoring.score_article(a, cat, csize),
+        })
+    return out
 
 
-def _feed_context(request: Request, f: queries.FeedFilters, *,
-                  heading: str | None = None, sub: str | None = None,
-                  chips: list | None = None) -> dict:
-    conn = db.connect()
-    try:
-        articles = queries.dedupe_stories(queries.feed(conn, f))
-        groups = queries.group_clusters(articles)
-        srcmap = queries.source_name_map(conn)
-        return {
-            "request": request,
-            "groups": groups,
-            "srcmap": srcmap,
-            "stats": queries.stats(conn),
-            "top_headlines": queries.top_headlines(conn, limit=8),
-            "voices": queries.voices_latest(conn, limit=6),
-            "filters": f,
-            "heading": heading,
-            "sub": sub,
-            "chips": chips,
-        }
-    finally:
-        conn.close()
+def _cards_from(conn, articles: list) -> list[dict]:
+    return _cards(conn, queries.group_clusters(articles))
 
+
+# ---- per-tab article fetchers (reuse queries.*) -----------------------------
+
+def _ranked_pool(conn, days: int = 21, limit: int = 140) -> list:
+    f = queries.FeedFilters(sort="importance", days=days, limit=limit)
+    return queries.dedupe_stories(queries.feed(conn, f))
+
+
+def _technology(conn, limit: int = 60) -> list:
+    f = queries.FeedFilters(exclude_categories=TECH_EXCLUDE, sort="importance",
+                            days=21, limit=limit)
+    return queries.dedupe_stories(queries.feed(conn, f))
+
+
+def _business(conn, limit: int = 60) -> list:
+    market = queries.feed(conn, queries.FeedFilters(category="market", sort="importance",
+                                                    days=30, limit=limit))
+    industry = queries.industry_feed(conn, limit=limit)
+    merged = queries.rank_articles(conn, market + industry)
+    return queries.dedupe_stories(merged)[:limit]
+
+
+def _innovation(conn, limit: int = 60) -> list:
+    pool = _ranked_pool(conn, days=30, limit=200)
+    kw = ("startup", "raises", "raise ", "series ", "funding", "launch", "unveil",
+          "introduc", "partnership", "acqui")
+    picks = [a for a in pool
+             if (set(a.tags) & INNOVATION_TAGS)
+             or any(k in (a.title or "").lower() for k in kw)]
+    return picks[:limit]
+
+
+# ---- shared feed render -----------------------------------------------------
+
+def _render_feed(request: Request, *, cards: list[dict], heading: str, sub: str,
+                 icon: str, sidebar_title: str | None = None,
+                 sidebar: list[dict] | None = None) -> HTMLResponse:
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "feed.html", {
+        "request": request,
+        "cards": cards,
+        "heading": heading,
+        "sub": sub,
+        "icon": icon,
+        "sidebar_title": sidebar_title,
+        "sidebar": sidebar,
+    })
+
+
+# ---- 1. Briefing (dashboard home) -------------------------------------------
 
 @router.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    # Home: a balanced mix of the latest from AI News, Tech News, Blogs,
-    # Architecture, and Industry View (see queries.home_mix).
+async def briefing(request: Request):
     conn = db.connect()
     try:
-        articles = queries.home_mix(conn)
+        pool = _ranked_pool(conn, days=21, limit=140)
+        exec_cards = _cards_from(conn, pool[:5])
+        trending = _cards_from(conn, pool[5:14])
+        tech = _cards_from(conn, _technology(conn, limit=6))
+        blogs = _cards_from(conn, queries.voices_feed(conn, limit=4))
+        podcasts = _cards_from(conn, queries.podcasts_feed(conn, limit=4))
+        radar = trendmod.radar(conn)
         ctx = {
             "request": request,
-            "groups": queries.group_clusters(articles),
-            "srcmap": queries.source_name_map(conn),
+            "exec_cards": exec_cards,
+            "trending": trending,
+            "tech": tech,
+            "blogs": blogs,
+            "podcasts": podcasts,
+            "radar": radar,
+            "paths": resources.LEARNING_PATHS,
             "stats": queries.stats(conn),
-            "top_headlines": queries.top_headlines(conn, limit=8),
-            "voices": queries.voices_latest(conn, limit=6),
-            "filters": None,
-            "heading": None,
-            "sub": None,
-            "chips": None,
         }
     finally:
         conn.close()
     templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", ctx)
+    return templates.TemplateResponse(request, "briefing.html", ctx)
 
 
-@router.get("/tech", response_class=HTMLResponse)
-async def tech_view(request: Request):
-    # General technology (not restricted to AI). The composite ranking scores
-    # "significance to the AI field", which would bury general tech — so this
-    # tab is newest-first.
-    f = queries.FeedFilters(
-        exclude_categories=("market", "blog", "podcast", "architecture", "industry"),
-        sort="newest")
-    ctx = _feed_context(
-        request, f,
-        heading="Tech News",
-        sub="the latest technology news across major outlets, de-duplicated",
-    )
-    templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", ctx)
+# ---- 2. Trends --------------------------------------------------------------
 
-
-@router.get("/feed", response_class=HTMLResponse)
-async def feed_partial(
-    request: Request,
-    company: str = "",
-    category: str = "",
-    days: str = "",
-    min_importance: str = "",
-    sort: str = "newest",
-):
-    """HTMX partial: just the list of cards."""
-    f = _filters(company, category, days, min_importance, sort)
-    ctx = _feed_context(request, f)
-    templates = request.app.state.templates
-    return templates.TemplateResponse(request, "_list.html", ctx)
-
-
-@router.get("/enterprises", response_class=HTMLResponse)
-async def vendors_view(request: Request):
+@router.get("/trends", response_class=HTMLResponse)
+async def trends_view(request: Request):
     conn = db.connect()
     try:
-        tiles = queries.vendor_tiles(conn)
+        data = trendmod.compute_trends(conn)
         srcmap = queries.source_name_map(conn)
     finally:
         conn.close()
     templates = request.app.state.templates
-    return templates.TemplateResponse(
-        request, "vendors.html", {"tiles": tiles, "srcmap": srcmap}
-    )
+    return templates.TemplateResponse(request, "trends.html",
+                                      {"request": request, "trends": data, "srcmap": srcmap})
 
 
-@router.get("/enterprise/{slug}", response_class=HTMLResponse)
-async def vendor_view(request: Request, slug: str):
-    vendor = vendormod.BY_SLUG.get(slug)
+# ---- 3. Technology ----------------------------------------------------------
+
+@router.get("/technology", response_class=HTMLResponse)
+async def technology_view(request: Request):
     conn = db.connect()
     try:
-        if vendor is None:
-            articles = []
-        else:
-            articles = queries.vendor_feed(conn, slug)
-        groups = queries.group_clusters(articles)
-        srcmap = queries.source_name_map(conn)
+        cards = _cards_from(conn, _technology(conn, limit=60))
     finally:
         conn.close()
-    templates = request.app.state.templates
-    return templates.TemplateResponse(
-        request, "vendor.html",
-        {"vendor": vendor, "groups": groups, "srcmap": srcmap, "count": len(articles)},
+    return _render_feed(
+        request, cards=cards, icon="💻", heading="Technology",
+        sub="Models, frameworks, research, and infrastructure — the technical frontier.",
     )
 
+
+# ---- 4. Innovation ----------------------------------------------------------
+
+@router.get("/innovation", response_class=HTMLResponse)
+async def innovation_view(request: Request):
+    conn = db.connect()
+    try:
+        cards = _cards_from(conn, _innovation(conn, limit=60))
+    finally:
+        conn.close()
+    return _render_feed(
+        request, cards=cards, icon="🚀", heading="Innovation",
+        sub="Products, startups, funding, and use cases — where AI is creating value.",
+    )
+
+
+# ---- 5. Business ------------------------------------------------------------
+
+@router.get("/business", response_class=HTMLResponse)
+async def business_view(request: Request):
+    conn = db.connect()
+    try:
+        cards = _cards_from(conn, _business(conn, limit=60))
+    finally:
+        conn.close()
+    return _render_feed(
+        request, cards=cards, icon="🏢", heading="Business",
+        sub="Strategy, enterprise adoption, governance, and competitive intelligence.",
+    )
+
+
+# ---- 6. Blogs ---------------------------------------------------------------
 
 @router.get("/blogs", response_class=HTMLResponse)
 async def blogs_view(request: Request):
-    # Blogs: trusted-voice essays only — newest first in the feed, top-ranked
-    # blog posts (not news headlines) in the sidebar.
     conn = db.connect()
     try:
-        articles = queries.voices_feed(conn)
-        ctx = {
-            "request": request,
-            "groups": queries.group_clusters(articles),
-            "srcmap": queries.source_name_map(conn),
-            "stats": queries.stats(conn),
-            "top_headlines": queries.top_voices(conn, limit=8),
-            "headlines_title": "Top Blogs",
-            "voices": None,
-            "filters": None,
-            "heading": "Blogs",
-            "sub": "essays & analysis from trusted industry voices, newest first",
-            "chips": None,
-        }
+        cards = _cards_from(conn, queries.voices_feed(conn, limit=60))
+        top = _cards_from(conn, queries.top_voices(conn, limit=6))
     finally:
         conn.close()
-    templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", ctx)
+    return _render_feed(
+        request, cards=cards, icon="📝", heading="Blogs",
+        sub="Long-form analysis and engineering deep dives from trusted voices.",
+        sidebar_title="Top Reads", sidebar=top,
+    )
 
 
-@router.get("/industry", response_class=HTMLResponse)
-async def industry_view(request: Request):
-    # Industry View: AI insights & white papers from consulting firms, analysts,
-    # and research institutions; newest first, industry-only sidebar.
-    conn = db.connect()
-    try:
-        articles = queries.industry_feed(conn)
-        ctx = {
-            "request": request,
-            "groups": queries.group_clusters(articles),
-            "srcmap": queries.source_name_map(conn),
-            "stats": queries.stats(conn),
-            "top_headlines": queries.top_industry(conn, limit=8),
-            "headlines_title": "Top Insights",
-            "voices": None,
-            "filters": None,
-            "heading": "Industry View",
-            "sub": "AI insights & white papers from consulting firms, analysts & research institutions",
-            "chips": None,
-        }
-    finally:
-        conn.close()
-    templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", ctx)
-
-
-@router.get("/architecture", response_class=HTMLResponse)
-async def architecture_view(request: Request):
-    # Architecture: reference architectures & engineering deep-dives from
-    # trustworthy publications (GitHub-routed items filtered out), newest first.
-    conn = db.connect()
-    try:
-        articles = queries.architecture_feed(conn)
-        ctx = {
-            "request": request,
-            "groups": queries.group_clusters(articles),
-            "srcmap": queries.source_name_map(conn),
-            "stats": queries.stats(conn),
-            "top_headlines": queries.top_architecture(conn, limit=8),
-            "headlines_title": "Top References",
-            "voices": None,
-            "filters": None,
-            "heading": "Architecture",
-            "sub": "reference architectures & engineering deep-dives from trusted sources, newest first",
-            "chips": None,
-        }
-    finally:
-        conn.close()
-    templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", ctx)
-
+# ---- 7. Podcasts ------------------------------------------------------------
 
 @router.get("/podcasts", response_class=HTMLResponse)
 async def podcasts_view(request: Request):
-    # Podcasts: latest episodes from leading AI shows, newest first, with the
-    # top-ranked episodes (not news headlines) in the sidebar.
     conn = db.connect()
     try:
-        articles = queries.podcasts_feed(conn)
-        ctx = {
-            "request": request,
-            "groups": queries.group_clusters(articles),
-            "srcmap": queries.source_name_map(conn),
-            "stats": queries.stats(conn),
-            "top_headlines": queries.top_podcasts(conn, limit=8),
-            "headlines_title": "Top Episodes",
-            "voices": None,
-            "filters": None,
-            "heading": "Podcasts",
-            "sub": "latest episodes from leading AI shows, newest first",
-            "chips": None,
-        }
+        cards = _cards_from(conn, queries.podcasts_feed(conn, limit=60))
+        top = _cards_from(conn, queries.top_podcasts(conn, limit=6))
+    finally:
+        conn.close()
+    return _render_feed(
+        request, cards=cards, icon="🎙", heading="Podcasts",
+        sub="Latest episodes from leading AI shows — interviews, research, and founders.",
+        sidebar_title="Top Episodes", sidebar=top,
+    )
+
+
+# ---- 8. Resources -----------------------------------------------------------
+
+@router.get("/resources", response_class=HTMLResponse)
+async def resources_view(request: Request):
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "resources.html", {
+        "request": request,
+        "paths": resources.LEARNING_PATHS,
+        "resources": resources.RESOURCES,
+        "glossary": resources.GLOSSARY,
+    })
+
+
+# ---- search / htmx partial --------------------------------------------------
+
+@router.get("/feed", response_class=HTMLResponse)
+async def feed_partial(request: Request, search: str = "", company: str = "",
+                       category: str = "", days: str = "", min_importance: str = "",
+                       sort: str = "importance"):
+    """HTMX partial: a searched/filtered grid of cards (powers global search)."""
+    def _int(v):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+    f = queries.FeedFilters(search=search or None, company=company or None,
+                            category=category or None, days=_int(days),
+                            min_importance=_int(min_importance), sort=sort or "importance")
+    conn = db.connect()
+    try:
+        cards = _cards_from(conn, queries.dedupe_stories(queries.feed(conn, f)))
     finally:
         conn.close()
     templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", ctx)
+    return templates.TemplateResponse(request, "_list.html",
+                                      {"request": request, "cards": cards})
 
 
-@router.get("/ticker")
-async def ticker_quotes():
-    """Quotes for the Nasdaq AI stock ticker bar (cached ~5 min)."""
-    return await tickermod.quotes()
+# ---- reader modal data ------------------------------------------------------
+
+@router.get("/article/{article_id}/perspectives")
+async def article_perspectives(article_id: int):
+    """Return the 5-perspective reader payload, generating + caching on first open.
+    Falls back to templated views when Ollama is unavailable."""
+    conn = db.connect()
+    try:
+        row = db.get_article_row(conn, article_id)
+        if row is None:
+            return {"id": article_id, "perspectives": {}}
+        if row["perspectives"]:
+            try:
+                return {"id": article_id, "perspectives": json.loads(row["perspectives"])}
+            except json.JSONDecodeError:
+                pass
+        data = await persp_mod.perspectives(
+            row["title"], row["summary"], row["raw_summary"] or ""
+        )
+        db.save_perspectives(conn, article_id, json.dumps(data))
+        return {"id": article_id, "perspectives": data}
+    finally:
+        conn.close()
 
 
 @router.get("/article/{article_id}/summary")
 async def article_summary(article_id: int):
-    """Reader-modal summary: return the cached ~50-120 word summary, generating
-    it via the local LLM on first request. Falls back to the stored short
-    summary / RSS text when Ollama is unavailable."""
+    """Legacy reader summary (kept for compatibility)."""
     conn = db.connect()
     try:
         row = db.get_article_row(conn, article_id)
@@ -276,34 +305,32 @@ async def article_summary(article_id: int):
         if text:
             db.save_detail_summary(conn, article_id, text)
             return {"id": article_id, "summary": text}
-        fallback = row["summary"] or (row["raw_summary"] or "")[:400]
-        return {"id": article_id, "summary": fallback}
+        return {"id": article_id, "summary": row["summary"] or (row["raw_summary"] or "")[:400]}
     finally:
         conn.close()
 
 
-@router.get("/market", response_class=HTMLResponse)
-async def market_view(request: Request):
-    # AI News: same layout as Home / Tech News, restricted to the market feeds
-    # (the business side of AI — no research/launch coverage).
-    f = queries.FeedFilters(category="market", sort="importance")
-    ctx = _feed_context(request, f)
-    templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", ctx)
+@router.get("/ticker")
+async def ticker_quotes():
+    """Quotes for the market-signals ticker bar (cached ~5 min)."""
+    return await tickermod.quotes()
 
 
-@router.get("/market/{slug}", response_class=HTMLResponse)
-async def market_category_view(request: Request, slug: str):
-    cat = marketmod.BY_SLUG.get(slug)
-    conn = db.connect()
-    try:
-        articles = queries.market_feed(conn, slug) if cat else []
-        groups = queries.group_clusters(articles)
-        srcmap = queries.source_name_map(conn)
-    finally:
-        conn.close()
-    templates = request.app.state.templates
-    return templates.TemplateResponse(
-        request, "market_category.html",
-        {"cat": cat, "groups": groups, "srcmap": srcmap, "count": len(articles)},
-    )
+# ---- retired-route redirects (keep old bookmarks alive) ---------------------
+
+_REDIRECTS = {
+    "/market": "/business",
+    "/tech": "/technology",
+    "/industry": "/business",
+    "/architecture": "/technology",
+    "/enterprises": "/business",
+}
+
+
+@router.get("/market", include_in_schema=False)
+@router.get("/tech", include_in_schema=False)
+@router.get("/industry", include_in_schema=False)
+@router.get("/architecture", include_in_schema=False)
+@router.get("/enterprises", include_in_schema=False)
+async def _retired(request: Request):
+    return RedirectResponse(_REDIRECTS.get(request.url.path, "/"), status_code=307)

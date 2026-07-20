@@ -1,62 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Sources · AI Aggregator{% endblock %}
+{% block title %}Sources — AI Intelligence Platform{% endblock %}
 {% block content %}
-<div class="flex items-center gap-3 mb-5">
-  <h1 class="text-2xl font-extrabold">Sources &amp; Health</h1>
+<div class="page-head" style="display:flex;align-items:flex-start;gap:16px">
+  <div style="flex:1">
+    <h1><span>🛰️</span> Sources &amp; Health</h1>
+    <p>Feed status, ingestion counts, and the local enrichment engine.</p>
+  </div>
   <form hx-post="/refresh" hx-target="#refresh-status" hx-swap="innerHTML"
         hx-disabled-elt="find button"
-        hx-on::after-request="setTimeout(function(){location.reload()}, 900)"
-        class="ml-auto">
-    <button class="bg-gray-900 hover:bg-gray-800 disabled:opacity-60 disabled:cursor-wait text-white rounded px-3 py-1.5 text-sm font-semibold">
-      <span class="hx-idle">Refresh now</span>
-      <span class="hx-busy">Refreshing…</span>
-    </button>
+        hx-on::after-request="setTimeout(function(){location.reload()}, 900)">
+    <button class="btn btn--primary">Refresh now</button>
   </form>
 </div>
-<div id="refresh-status" class="mb-4"></div>
+<div id="refresh-status" style="margin-bottom:16px"></div>
 
-<div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-  {% for label, val in [('Articles', stats.total), ('Summarized', stats.enriched),
+<div class="stats" style="grid-template-columns:repeat(5,1fr)">
+  {% for label, val in [('Articles', stats.total), ('Analyzed', stats.enriched),
                         ('Pending', stats.pending), ('Failed', stats.failed),
                         ('Clusters', stats.clusters)] %}
-  <div class="bg-white border border-gray-200 rounded-lg py-4 text-center">
-    <div class="text-2xl font-extrabold">{{ val }}</div>
-    <div class="text-xs text-gray-500 uppercase tracking-wide">{{ label }}</div>
-  </div>
+  <div class="stat"><div class="stat__k tnum">{{ val }}</div><div class="stat__l">{{ label }}</div></div>
   {% endfor %}
 </div>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4 mb-6 text-sm">
-  <span class="font-semibold">Local LLM (Ollama):</span>
+<div class="panel" style="margin-top:18px">
+  <strong>Local LLM (Ollama):</strong>
   {% if ollama_up %}
-    <span class="text-emerald-600 font-semibold">online</span>
-    <span class="text-gray-500">· {{ models | join(', ') }}</span>
+    <span style="color:var(--pos);font-weight:700">online</span>
+    <span class="muted">· {{ models | join(', ') }}</span>
   {% else %}
-    <span class="text-red-600 font-semibold">offline</span>
-    <span class="text-gray-500">· articles show raw summaries until it is reachable</span>
+    <span style="color:var(--neg);font-weight:700">offline</span>
+    <span class="muted">· perspectives fall back to stored summaries until it is reachable</span>
   {% endif %}
 </div>
 
-<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-  <table class="w-full min-w-[640px] text-sm">
-    <thead class="text-left text-gray-500 bg-gray-50 border-b border-gray-200">
-      <tr><th class="py-2 px-4">Source</th><th>Category</th><th>Items</th><th>Last fetch</th><th class="px-4">Status</th></tr>
+<div class="panel" style="margin-top:18px;overflow-x:auto;padding:0">
+  <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:13.5px">
+    <thead>
+      <tr style="text-align:left;color:var(--muted);border-bottom:1px solid var(--border)">
+        <th style="padding:10px 16px">Source</th><th>Category</th><th>Items</th><th>Last fetch</th><th style="padding-right:16px">Status</th>
+      </tr>
     </thead>
     <tbody>
       {% for s in sources %}
-      <tr class="border-b border-gray-100 last:border-0">
-        <td class="py-2 px-4 font-medium">{{ s.name }}</td>
-        <td class="text-gray-500">{{ s.category }}</td>
-        <td>{{ counts.get(s.id, 0) }}</td>
-        <td class="text-gray-500">{{ s.last_fetch | timeago }}</td>
-        <td class="px-4">
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:9px 16px;font-weight:600">{{ s.name }}</td>
+        <td class="muted">{{ s.category }}</td>
+        <td class="tnum">{{ counts.get(s.id, 0) }}</td>
+        <td class="muted">{{ s.last_fetch | timeago }}</td>
+        <td style="padding-right:16px">
           {% if s.last_status and s.last_status.startswith('ok') %}
-            <span class="text-emerald-600">{{ s.last_status }}</span>
+            <span style="color:var(--pos)">{{ s.last_status }}</span>
           {% elif s.last_status %}
-            <span class="text-red-600">{{ s.last_status }}</span>
-          {% else %}
-            <span class="text-gray-400">—</span>
-          {% endif %}
+            <span style="color:var(--neg)">{{ s.last_status }}</span>
+          {% else %}<span class="faint">—</span>{% endif %}
         </td>
       </tr>
       {% endfor %}

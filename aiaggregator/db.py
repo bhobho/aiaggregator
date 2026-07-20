@@ -115,6 +115,8 @@ def init_db(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE articles ADD COLUMN detail_summary TEXT")
     if "embedding" not in cols:
         conn.execute("ALTER TABLE articles ADD COLUMN embedding BLOB")
+    if "perspectives" not in cols:
+        conn.execute("ALTER TABLE articles ADD COLUMN perspectives TEXT")
     conn.commit()
 
 
@@ -245,6 +247,12 @@ def get_article_row(conn: sqlite3.Connection, article_id: int) -> sqlite3.Row | 
 
 def save_detail_summary(conn: sqlite3.Connection, article_id: int, text: str) -> None:
     conn.execute("UPDATE articles SET detail_summary=? WHERE id=?", (text, article_id))
+    conn.commit()
+
+
+def save_perspectives(conn: sqlite3.Connection, article_id: int, payload_json: str) -> None:
+    """Cache the multi-perspective reader payload (JSON string) for an article."""
+    conn.execute("UPDATE articles SET perspectives=? WHERE id=?", (payload_json, article_id))
     conn.commit()
 
 

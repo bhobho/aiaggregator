@@ -1,8 +1,12 @@
-# aiaggregator
+# aiaggregator — AI Intelligence Platform
 
-Local-first AI / Agentic-AI news dashboard. Runs entirely on your machine with **no paid APIs**:
+A local-first **AI intelligence command center** for technical and business audiences —
+engineers, architects, product leaders, and executives. Every story is scored for
+technical and business impact and explained from five perspectives (Quick / Technical /
+Architecture / Business / Leadership). Runs entirely on your machine with **no paid APIs**:
 RSS/Atom ingestion + local LLM enrichment via [Ollama](https://ollama.com) + SQLite + a
-FastAPI/HTMX dashboard.
+FastAPI/HTMX dashboard across 8 tabs (Briefing, Trends, Technology, Innovation, Business,
+Blogs, Podcasts, Resources).
 
 ## Features
 
@@ -31,7 +35,7 @@ FastAPI/HTMX dashboard.
 
 ```sh
 uv sync
-./run.sh            # serves http://localhost:8000
+./run.sh            # serves http://localhost:9002
 ```
 
 On first launch it creates the SQLite DB, loads `feeds.yaml`, and fetches once. Use the
@@ -41,10 +45,10 @@ scheduler then fetches/enriches periodically.
 ## Run with Docker
 
 ```sh
-docker compose up --build      # serves http://localhost:9000
+docker compose up --build      # serves http://localhost:9002
 ```
 
-The compose stack runs the FastAPI app on port 9000, persists the SQLite DB in a named
+The compose stack runs the FastAPI app on port 9002, persists the SQLite DB in a named
 volume (`aiagg-data`), and mounts `feeds.yaml` read-only so you can edit sources without
 rebuilding. Ollama is expected on the **host**: the container reaches it via
 `http://host.docker.internal:11434` by default (works on Docker Desktop and, via the

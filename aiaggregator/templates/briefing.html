@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Daily Briefing — AI Intelligence Platform{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1><span>🏠</span> AI Executive Briefing</h1>
+  <p>Your daily intelligence summary — what changed in AI, why it matters, and what to do about it.</p>
+</div>
+
+<!-- command-center stat row -->
+<div class="stats">
+  <div class="stat"><div class="stat__k tnum">{{ stats.total }}</div><div class="stat__l">Stories tracked</div></div>
+  <div class="stat"><div class="stat__k tnum">{{ stats.enriched }}</div><div class="stat__l">Analyzed</div></div>
+  <div class="stat"><div class="stat__k tnum">{{ stats.clusters }}</div><div class="stat__l">Story clusters</div></div>
+  <div class="stat"><div class="stat__k tnum">{{ radar|length }}</div><div class="stat__l">Trends monitored</div></div>
+</div>
+
+<!-- 1 · Executive briefing: hero + 4 -->
+<section class="section">
+  <div class="section__head"><h2>Top developments</h2><span class="rule"></span></div>
+  {% if exec_cards %}
+    {% with card = exec_cards[0], feature = True %}{% include "_card.html" %}{% endwith %}
+    <div class="grid grid--2 js-sortable" style="margin-top:16px">
+      {% for card in exec_cards[1:5] %}{% include "_card.html" %}{% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">No analyzed stories yet — hit refresh on the <a href="/health">Sources</a> page.</div>
+  {% endif %}
+</section>
+
+<!-- 2 · AI Radar -->
+<section class="section">
+  <div class="section__head"><h2>🔥 AI Radar</h2><span class="rule"></span><a href="/trends">All trends →</a></div>
+  <div class="radar">
+    {% for r in radar %}
+      <div class="radar__row">
+        <div class="radar__name"><span>{{ r.emoji }}</span> <a href="/trends">{{ r.name }}</a></div>
+        <div class="radar__track"><div class="radar__bar" style="width: {{ r.bar }}%"></div></div>
+        <div class="radar__mom {{ 'mom-up' if r.momentum > 0 else ('mom-down' if r.momentum < 0 else 'mom-flat') }}">
+          {{ '+' if r.momentum > 0 else '' }}{{ r.momentum }}%
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- 3 · Trending stories -->
+<section class="section">
+  <div class="section__head"><h2>Trending stories</h2><span class="rule"></span></div>
+  <div class="grid grid--3 js-sortable">
+    {% for card in trending %}{% include "_card.html" %}{% endfor %}
+  </div>
+</section>
+
+<!-- 4 · Technical deep dives -->
+<section class="section">
+  <div class="section__head"><h2>💻 Technical deep dives</h2><span class="rule"></span><a href="/technology">More →</a></div>
+  <div class="grid grid--3 js-sortable">
+    {% for card in tech %}{% include "_card.html" %}{% endfor %}
+  </div>
+</section>
+
+<!-- 5 · Latest blogs -->
+<section class="section">
+  <div class="section__head"><h2>📝 Latest blogs</h2><span class="rule"></span><a href="/blogs">More →</a></div>
+  <div class="grid grid--2 js-sortable">
+    {% for card in blogs %}{% with compact = False %}{% include "_card.html" %}{% endwith %}{% endfor %}
+  </div>
+</section>
+
+<!-- 6 · Featured podcasts -->
+<section class="section">
+  <div class="section__head"><h2>🎙 Featured podcasts</h2><span class="rule"></span><a href="/podcasts">More →</a></div>
+  <div class="grid grid--2 js-sortable">
+    {% for card in podcasts %}{% include "_card.html" %}{% endfor %}
+  </div>
+</section>
+
+<!-- 7 · Recommended learning paths -->
+<section class="section">
+  <div class="section__head"><h2>📚 Recommended learning paths</h2><span class="rule"></span><a href="/resources">All resources →</a></div>
+  <div class="grid grid--2">
+    {% for p in paths %}
+      <div class="path">
+        <div class="path__head">
+          <span class="path__emoji">{{ p.emoji }}</span>
+          <div><div class="path__name">{{ p.name }}</div><div class="path__aud">{{ p.audience }}</div></div>
+        </div>
+        <p class="path__sum">{{ p.summary }}</p>
+        <a class="btn" href="/resources#{{ p.slug }}">Start path →</a>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% endblock %}

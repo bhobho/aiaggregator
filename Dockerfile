@@ -37,9 +37,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
     AIAGG_OLLAMA_HOST=http://host.docker.internal:11434
 
 USER app
-EXPOSE 9000
+EXPOSE 9002
 
 # --proxy-headers lets the app build correct https:// URLs behind a reverse proxy.
 CMD ["uvicorn", "aiaggregator.main:app", \
-     "--host", "0.0.0.0", "--port", "9000", \
+     "--host", "0.0.0.0", "--port", "9002", \
      "--proxy-headers", "--forwarded-allow-ips=*"]

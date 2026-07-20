@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }} — AI Intelligence Platform{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1><span>{{ icon }}</span> {{ heading }}</h1>
+  <p>{{ sub }}</p>
+</div>
+
+{% if sidebar is not none %}
+<div class="grid--main">
+  <div>
+    {% if not cards %}
+      <div class="empty">Nothing here yet. Hit refresh on the <a href="/health">Sources</a> page.</div>
+    {% else %}
+      <div class="grid grid--2 js-sortable">
+        {% for card in cards %}{% include "_card.html" %}{% endfor %}
+      </div>
+    {% endif %}
+  </div>
+  <aside class="rail">
+    <div class="panel">
+      <h3>{{ sidebar_title }}</h3>
+      <ul class="rank">
+        {% for card in sidebar %}
+          <li><a onclick='openArticle({{ {
+            "id": card.a.id, "title": card.a.title, "url": card.a.url,
+            "label": (card.a.companies[0] if card.a.companies else card.src), "source": card.src,
+            "time": (card.a.published_at | timeago) or (card.a.fetched_at | timeago),
+            "summary": card.a.summary or card.a.raw_summary[:400], "tags": card.a.tags,
+            "why": card.score.why, "action": card.score.action,
+            "tech": card.score.technical, "biz": card.score.business,
+            "tech_token": card.score.technical_token, "biz_token": card.score.business_token,
+            "extras": card.extras } | tojson }})' style="cursor:pointer">{{ card.a.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </aside>
+</div>
+{% else %}
+  {% if not cards %}
+    <div class="empty">Nothing here yet. Hit refresh on the <a href="/health">Sources</a> page.</div>
+  {% else %}
+    <div class="grid grid--3 js-sortable">
+      {% for card in cards %}{% include "_card.html" %}{% endfor %}
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}
