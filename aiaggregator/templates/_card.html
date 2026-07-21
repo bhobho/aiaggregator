@@ -5,6 +5,8 @@
 {% set lcolor = 'accent' %}
 {% set featured = featured|default(false) %}
 {% set compact = compact|default(false) %}
+{% set hide_source = hide_source|default(false) %}
+{% set framed = framed|default(false) %}
 
 {# payload for the in-page reader modal (see base.html) #}
 {% set extras_payload = [] %}
@@ -16,22 +18,36 @@
   'id': a.id,
   'title': a.title,
   'url': a.url,
-  'label': label,
-  'source': src[0],
+  'label': '' if hide_source else label,
+  'source': '' if hide_source else src[0],
   'time': (a.published_at | timeago) or (a.fetched_at | timeago),
   'summary': a.summary or a.raw_summary[:400],
   'tags': a.tags,
-  'importance': a.importance or 0,
+  'importance': 0 if hide_source else (a.importance or 0),
+  'image_url': a.image_url,
   'extras': extras_payload,
 } %}
 
 <article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow
                 {% if featured %}p-6{% else %}p-4{% endif %}"
          x-data="{ open:false }">
+  {% if a.image_url and not compact %}
+  {# framed: full-bleed header band, whole image visible (no crop). The band uses
+     the card's own colour so there's no grey box; a hairline divides it from text. #}
+  {% set img_wrap_cls = '-mx-4 -mt-4 mb-4' if framed else ('-m-6 mb-5' if featured else '-m-4 mb-3') %}
+  {% set img_cls = 'w-full h-44 object-contain bg-white p-3 border-b border-gray-200'
+                   if framed else ('w-full object-cover ' ~ ('h-60' if featured else 'h-40')) %}
+  <a href="{{ a.url }}" target="_blank" rel="noopener"
+     onclick='return openArticle({{ payload | tojson }})'
+     class="block cursor-pointer {{ img_wrap_cls }}">
+    <img src="{{ a.image_url }}" alt="" loading="lazy" class="{{ img_cls }}"
+         onerror="this.closest('a').remove()">
+  </a>
+  {% endif %}
   <div class="flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold">
-    <span class="{{ lcolor }}">{{ label }}</span>
+    {% if not hide_source %}<span class="{{ lcolor }}">{{ label }}</span>{% endif %}
     {% set imp = a.importance or 0 %}
-    {% if imp >= 70 %}<span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>{% endif %}
+    {% if imp >= 70 and not framed %}<span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>{% endif %}
     <span class="text-gray-400 font-normal normal-case ml-auto">{{ a.published_at | timeago or (a.fetched_at | timeago) }}</span>
   </div>
 
@@ -55,7 +71,7 @@
       {% for t in a.tags %}
       <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ t }}</span>
       {% endfor %}
-      <span class="text-[11px] text-gray-400 ml-auto">{{ src[0] }}</span>
+      {% if not hide_source %}<span class="text-[11px] text-gray-400 ml-auto">{{ src[0] }}</span>{% endif %}
     </div>
 
     {% if g.extras %}

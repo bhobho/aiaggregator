@@ -86,8 +86,7 @@
       </a>
       {% set path = request.url.path %}
       <nav class="ml-auto flex items-center gap-3 sm:gap-4 text-sm font-semibold">
-        <a href="/" class="hover:accent {{ 'nav-active' if path == '/' }}">Home</a>
-        <a href="/blogs" class="hover:accent {{ 'nav-active' if path == '/blogs' }}">Blogs</a>
+        <a href="/" class="hover:accent {{ 'nav-active' if path == '/' }}">My Page</a>
         <a href="/market" class="hover:accent {{ 'nav-active' if path.startswith('/market') }}">AI News</a>
         <a href="/tech" class="hover:accent {{ 'nav-active' if path == '/tech' }}">Tech News</a>
         <a href="/industry" class="hover:accent {{ 'nav-active' if path == '/industry' }}">Industry View</a>
@@ -155,6 +154,11 @@
         </template>
         <span class="text-gray-400 font-normal normal-case" x-text="a.time"></span>
       </div>
+
+      <template x-if="a.image_url">
+        <img :src="a.image_url" alt="" class="mt-3 w-full h-48 sm:h-56 object-cover rounded-lg"
+             @error="$el.style.display='none'">
+      </template>
 
       <h2 class="mt-2 text-xl sm:text-2xl font-extrabold leading-snug" x-text="a.title"></h2>
       <p class="mt-3 text-sm sm:text-base text-gray-700 leading-relaxed" x-text="detail || a.summary"></p>

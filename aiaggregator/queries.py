@@ -361,6 +361,22 @@ def featured_voice_feed(conn: sqlite3.Connection, limit: int = 5) -> list[Articl
     return _named_sources_feed(conn, {PRIORITY_VOICE}, limit)
 
 
+# ---- "My Page": the site owner's own posts (Medium + LinkedIn) --------------
+MY_MEDIUM_SOURCE = PRIORITY_VOICE          # "Neeraj Pandey (Medium)"
+MY_LINKEDIN_SOURCE = "Neeraj Pandey (LinkedIn)"
+
+
+def my_medium_feed(conn: sqlite3.Connection, limit: int = 60) -> list[Article]:
+    """The owner's Medium posts, newest first (empty if none ingested yet)."""
+    return _named_sources_feed(conn, {MY_MEDIUM_SOURCE}, limit)
+
+
+def my_linkedin_feed(conn: sqlite3.Connection, limit: int = 60) -> list[Article]:
+    """The owner's LinkedIn posts, newest first (empty until a LinkedIn feed is
+    configured — LinkedIn has no public RSS, so this needs an RSS-bridge source)."""
+    return _named_sources_feed(conn, {MY_LINKEDIN_SOURCE}, limit)
+
+
 def _latest_by_categories(conn: sqlite3.Connection, cats: tuple[str, ...],
                           limit: int) -> list[Article]:
     marks = ",".join("?" * len(cats))

@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS articles (
     companies    TEXT,
     importance   INTEGER,
     cluster_id   INTEGER,
+    image_url    TEXT,
     UNIQUE(source_id, guid)
 );
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
@@ -115,6 +116,8 @@ def init_db(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE articles ADD COLUMN detail_summary TEXT")
     if "embedding" not in cols:
         conn.execute("ALTER TABLE articles ADD COLUMN embedding BLOB")
+    if "image_url" not in cols:
+        conn.execute("ALTER TABLE articles ADD COLUMN image_url TEXT")
     conn.commit()
 
 
@@ -187,13 +190,24 @@ def insert_article(conn: sqlite3.Connection, a: Article) -> int | None:
     cur = conn.execute(
         """INSERT OR IGNORE INTO articles
            (source_id, guid, url, title, author, published_at, fetched_at,
-            raw_summary, content_hash, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')""",
+            raw_summary, content_hash, image_url, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')""",
         (a.source_id, a.guid, a.url, a.title, a.author, a.published_at,
-         a.fetched_at or now_iso(), a.raw_summary, a.content_hash),
+         a.fetched_at or now_iso(), a.raw_summary, a.content_hash, a.image_url),
     )
     conn.commit()
     return cur.lastrowid if cur.rowcount else None
+
+
+def backfill_image(conn: sqlite3.Connection, source_id: int, guid: str,
+                   image_url: str) -> None:
+    """Set image_url on an existing article that doesn't have one yet."""
+    conn.execute(
+        """UPDATE articles SET image_url=?
+           WHERE source_id=? AND guid=? AND COALESCE(image_url,'')=''""",
+        (image_url, source_id, guid),
+    )
+    conn.commit()
 
 
 def pending_enrichment(conn: sqlite3.Connection, limit: int) -> list[Article]:

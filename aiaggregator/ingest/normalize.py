@@ -13,6 +13,41 @@ from ..models import Article, now_iso
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
+_IMG_RE = re.compile(r"""<img[^>]+src=["']([^"']+)["']""", re.I)
+_IMG_EXT_RE = re.compile(r"\.(jpe?g|png|webp|gif|avif)(\?|$)", re.I)
+
+
+def _entry_image(entry) -> str | None:
+    """Best lead/thumbnail image URL for a feed item, or None.
+
+    Checks the common RSS/Atom carriers in order of reliability: media:content,
+    media:thumbnail, an image enclosure, then the first <img> in the item's HTML.
+    Only absolute http(s) URLs are kept."""
+    def ok(url: str | None) -> str | None:
+        url = (url or "").strip()
+        return url if url.startswith(("http://", "https://")) else None
+
+    for m in entry.get("media_content", []) or []:
+        medium = (m.get("medium") or "").lower()
+        typ = (m.get("type") or "").lower()
+        url = ok(m.get("url"))
+        if url and (medium == "image" or typ.startswith("image") or _IMG_EXT_RE.search(url)):
+            return url
+    for m in entry.get("media_thumbnail", []) or []:
+        if (url := ok(m.get("url"))):
+            return url
+    for link in entry.get("links", []) or []:
+        if link.get("rel") == "enclosure" and (link.get("type") or "").startswith("image"):
+            if (url := ok(link.get("href"))):
+                return url
+    html = ""
+    if entry.get("content"):
+        html = entry["content"][0].get("value", "")
+    html = html or entry.get("summary") or entry.get("description") or ""
+    match = _IMG_RE.search(html)
+    if match:
+        return ok(match.group(1))
+    return None
 
 
 def strip_html(text: str | None) -> str:
@@ -99,6 +134,7 @@ def parse_feed(body: bytes, source_id: int, *, is_community: bool = False,
                 fetched_at=now_iso(),
                 raw_summary=raw_summary[:2000],
                 content_hash=content_hash(title, url),
+                image_url=_entry_image(entry),
             )
         )
     return out

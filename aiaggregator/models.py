@@ -34,6 +34,7 @@ class Article:
     published_at: str | None = None  # ISO 8601
     fetched_at: str | None = None
     raw_summary: str = ""
+    image_url: str | None = None  # lead/thumbnail image from the feed item, if any
     # enrichment
     status: str = "new"  # new | enriched | failed
     summary: str | None = None
@@ -44,6 +45,7 @@ class Article:
 
     @staticmethod
     def from_row(row) -> "Article":
+        keys = row.keys()
         return Article(
             id=row["id"],
             source_id=row["source_id"],
@@ -55,6 +57,7 @@ class Article:
             published_at=row["published_at"],
             fetched_at=row["fetched_at"],
             raw_summary=row["raw_summary"] or "",
+            image_url=row["image_url"] if "image_url" in keys else None,
             status=row["status"],
             summary=row["summary"],
             tags=json.loads(row["tags"]) if row["tags"] else [],

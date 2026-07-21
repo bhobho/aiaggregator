@@ -58,28 +58,20 @@ def _feed_context(request: Request, f: queries.FeedFilters, *,
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    # Home: a balanced mix of the latest from AI News, Tech News, Blogs,
-    # Architecture, and Industry View (see queries.home_mix).
+    # My Page: the site owner's own posts — Medium (and LinkedIn, once a feed is
+    # configured) — with thumbnail images.
     conn = db.connect()
     try:
-        articles = queries.home_mix(conn)
         ctx = {
             "request": request,
-            "groups": queries.group_clusters(articles),
+            "medium_groups": queries.group_clusters(queries.my_medium_feed(conn, limit=60)),
             "srcmap": queries.source_name_map(conn),
             "stats": queries.stats(conn),
-            "top_headlines": queries.top_headlines(conn, limit=8),
-            "voices": queries.voices_latest(conn, limit=6),
-            "featured_blogs": queries.featured_voice_feed(conn, limit=5),
-            "filters": None,
-            "heading": None,
-            "sub": None,
-            "chips": None,
         }
     finally:
         conn.close()
     templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", ctx)
+    return templates.TemplateResponse(request, "mypage.html", ctx)
 
 
 @router.get("/tech", response_class=HTMLResponse)
