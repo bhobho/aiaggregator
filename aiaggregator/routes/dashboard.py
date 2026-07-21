@@ -70,6 +70,7 @@ async def index(request: Request):
             "stats": queries.stats(conn),
             "top_headlines": queries.top_headlines(conn, limit=8),
             "voices": queries.voices_latest(conn, limit=6),
+            "featured_blogs": queries.featured_voice_feed(conn, limit=5),
             "filters": None,
             "heading": None,
             "sub": None,

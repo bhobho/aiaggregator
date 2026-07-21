@@ -2,64 +2,89 @@
 {% block title %}Insights{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-extrabold mb-1">Visitor Insights</h1>
-<p class="text-sm text-gray-500 mb-5">Last {{ a.days }} days · private/localhost IPs shown as “Local”.</p>
+<p class="text-sm text-gray-500 mb-5">Unique views over time · last {{ a.days }} days window · private/localhost IPs shown as “Local”.</p>
 
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-  {% for label, val in [('Page views', a.visits), ('Unique visitors', a.visitors),
-                        ('Countries', a.by_country|length), ('Cities', a.by_city|length)] %}
+<div class="grid grid-cols-2 sm:grid-cols-2 gap-3 mb-6 max-w-md">
   <div class="bg-white border border-gray-200 rounded-lg py-4 text-center">
-    <div class="text-2xl font-extrabold">{{ val }}</div>
-    <div class="text-xs text-gray-500 uppercase tracking-wide">{{ label }}</div>
+    <div class="text-2xl font-extrabold">{{ a.visitors }}</div>
+    <div class="text-xs text-gray-500 uppercase tracking-wide">Unique views</div>
   </div>
-  {% endfor %}
+  <div class="bg-white border border-gray-200 rounded-lg py-4 text-center">
+    <div class="text-2xl font-extrabold">{{ a.visits }}</div>
+    <div class="text-xs text-gray-500 uppercase tracking-wide">Page views</div>
+  </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-  <!-- By country -->
+<!-- Daily trend -->
+<div class="bg-white border border-gray-200 rounded-lg p-4 mb-5">
+  <h3 class="font-bold mb-3">Daily <span class="text-gray-400 text-sm font-normal">— unique views, last 14 days</span></h3>
+  <div class="flex items-end gap-1.5 h-28">
+    {% for p in a.daily %}
+    <div class="flex-1 flex flex-col items-center justify-end h-full" title="{{ p.label }}: {{ p.value }} unique">
+      <div class="w-full bg-accent rounded-t" style="height: {{ p.bar }}%; min-height: 2px;"></div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="flex gap-1.5 mt-1.5">
+    {% for p in a.daily %}<div class="flex-1 text-center text-[9px] text-gray-400">{{ p.label }}</div>{% endfor %}
+  </div>
+</div>
+
+<!-- Weekly + Monthly -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 class="font-bold mb-3">Weekly <span class="text-gray-400 text-sm font-normal">— unique views, last 8 weeks</span></h3>
+    <div class="flex items-end gap-2 h-28">
+      {% for p in a.weekly %}
+      <div class="flex-1 flex flex-col items-center justify-end h-full" title="week of {{ p.label }}">
+        <div class="text-[10px] text-gray-500 mb-0.5">{{ p.value }}</div>
+        <div class="w-full bg-accent rounded-t" style="height: {{ p.bar }}%; min-height: 2px;"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="flex gap-2 mt-1.5">
+      {% for p in a.weekly %}<div class="flex-1 text-center text-[10px] text-gray-400">{{ p.label }}</div>{% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 class="font-bold mb-3">Monthly <span class="text-gray-400 text-sm font-normal">— unique views, last 6 months</span></h3>
+    <div class="flex items-end gap-2 h-28">
+      {% for p in a.monthly %}
+      <div class="flex-1 flex flex-col items-center justify-end h-full" title="{{ p.label }}">
+        <div class="text-[10px] text-gray-500 mb-0.5">{{ p.value }}</div>
+        <div class="w-full bg-accent rounded-t" style="height: {{ p.bar }}%; min-height: 2px;"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="flex gap-2 mt-1.5">
+      {% for p in a.monthly %}<div class="flex-1 text-center text-[10px] text-gray-400">{{ p.label }}</div>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Location of unique views -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
   <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-    <h3 class="font-bold px-4 py-2 border-b border-gray-200">By Country</h3>
-    <table class="w-full min-w-[360px] text-sm">
-      <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">Country</th><th>Visitors</th><th class="px-4">Views</th></tr></thead>
+    <h3 class="font-bold px-4 py-2 border-b border-gray-200">Unique views by Country</h3>
+    <table class="w-full min-w-[280px] text-sm">
+      <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">Country</th><th class="px-4">Unique</th></tr></thead>
       <tbody>
         {% for r in a.by_country %}
-        <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.country }}</td><td>{{ r.visitors }}</td><td class="px-4">{{ r.hits }}</td></tr>
-        {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="3">No data yet.</td></tr>{% endfor %}
+        <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.country }}</td><td class="px-4">{{ r.uniques }}</td></tr>
+        {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="2">No data yet.</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>
 
-  <!-- By city -->
   <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-    <h3 class="font-bold px-4 py-2 border-b border-gray-200">By City</h3>
-    <table class="w-full min-w-[360px] text-sm">
-      <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">City</th><th>Country</th><th class="px-4">Views</th></tr></thead>
+    <h3 class="font-bold px-4 py-2 border-b border-gray-200">Unique views by City</h3>
+    <table class="w-full min-w-[280px] text-sm">
+      <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">City</th><th>Country</th><th class="px-4">Unique</th></tr></thead>
       <tbody>
         {% for r in a.by_city %}
-        <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.city }}</td><td>{{ r.country }}</td><td class="px-4">{{ r.hits }}</td></tr>
+        <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.city }}</td><td>{{ r.country }}</td><td class="px-4">{{ r.uniques }}</td></tr>
         {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="3">No city-level data yet.</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Recent visits -->
-<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-  <h3 class="font-bold px-4 py-2 border-b border-gray-200">Recent Visits</h3>
-  <div class="overflow-x-auto">
-    <table class="w-full min-w-[680px] text-sm">
-      <thead class="text-left text-gray-500 bg-gray-50">
-        <tr><th class="px-4 py-1.5">When</th><th>IP</th><th>Location</th><th>Page</th><th class="px-4">Browser</th></tr>
-      </thead>
-      <tbody>
-        {% for r in a.recent %}
-        <tr class="border-t border-gray-100">
-          <td class="px-4 py-1.5 whitespace-nowrap text-gray-500">{{ r.ts | timeago }}</td>
-          <td class="font-mono text-xs">{{ r.ip }}</td>
-          <td>{{ [r.city, r.region, r.country] | select | join(', ') }}</td>
-          <td class="text-gray-700">{{ r.path }}</td>
-          <td class="px-4 text-xs text-gray-400 max-w-xs truncate">{{ r.user_agent }}</td>
-        </tr>
-        {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="5">No visits recorded yet.</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

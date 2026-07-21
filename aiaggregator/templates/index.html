@@ -31,6 +31,29 @@
 
   <!-- Sidebar -->
   <aside class="space-y-6">
+    {% if featured_blogs %}
+    <!-- Featured Blogs: pinned author (medium.com/@neeraj4321) -->
+    <div class="bg-white border border-gray-200 rounded-lg p-5">
+      <h3 class="text-lg font-extrabold border-b-2 border-gray-900 pb-2 mb-3 flex items-baseline gap-2">
+        Featured Blogs
+        <a href="https://medium.com/@neeraj4321" target="_blank" rel="noopener"
+           class="text-xs font-semibold accent ml-auto normal-case">@neeraj4321 ↗</a>
+      </h3>
+      <ul class="space-y-3.5">
+        {% for a in featured_blogs %}
+        <li>
+          <div class="flex items-baseline gap-2 text-[11px] uppercase tracking-wide font-semibold">
+            <span class="accent">Neeraj Pandey</span>
+            <span class="text-gray-400 font-normal normal-case ml-auto">{{ a.published_at | timeago or (a.fetched_at | timeago) }}</span>
+          </div>
+          <a href="{{ a.url }}" target="_blank" rel="noopener"
+             class="text-sm font-semibold text-gray-900 hover:accent leading-snug line-clamp-2">{{ a.title }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
     <!-- Top Headlines (TechCrunch-style) -->
     <div class="bg-white border border-gray-200 rounded-lg p-5">
       <h3 class="text-lg font-extrabold border-b-2 border-gray-900 pb-2 mb-3">{{ headlines_title | default('Top Headlines') }}</h3>

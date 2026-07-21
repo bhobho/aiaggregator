@@ -246,7 +246,11 @@ def group_clusters(articles: list[Article]) -> list[dict]:
 # Blog sources (category `blog` in feeds.yaml). Their posts rank below
 # same-day breaking news in the composite feed, so the sidebar surfaces each
 # blog's latest post directly and /blogs lists them all.
+# The featured author whose posts are pinned to the top of the Blogs tab.
+PRIORITY_VOICE = "Neeraj Pandey (Medium)"
+
 VOICE_SOURCES = {
+    PRIORITY_VOICE,
     "Hugging Face Blog",
     "Sebastian Raschka Blog",
     "Towards AI",
@@ -344,7 +348,17 @@ def _named_sources_feed(conn: sqlite3.Connection, names: set[str],
 
 
 def voices_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
-    return _named_sources_feed(conn, VOICE_SOURCES, limit)
+    # Pin the featured author's posts to the top, then the rest of the trusted
+    # voices newest-first. Fetched separately so the featured posts surface even
+    # when they're older than the recent-window cutoff of the other blogs.
+    featured = _named_sources_feed(conn, {PRIORITY_VOICE}, limit)
+    rest = _named_sources_feed(conn, VOICE_SOURCES - {PRIORITY_VOICE}, limit)
+    return dedupe_stories(featured + rest)[:limit]
+
+
+def featured_voice_feed(conn: sqlite3.Connection, limit: int = 5) -> list[Article]:
+    """The pinned author's latest blog posts — powers the Home 'Featured Blogs' panel."""
+    return _named_sources_feed(conn, {PRIORITY_VOICE}, limit)
 
 
 def _latest_by_categories(conn: sqlite3.Connection, cats: tuple[str, ...],
@@ -455,10 +469,13 @@ def top_architecture(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
 
 
 def top_voices(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
-    """Top blog posts for the Blogs-page sidebar: trusted-voice posts by
-    composite rank, one entry per story."""
+    """Top blog posts for the Blogs-page sidebar: the featured author first, then
+    the other trusted-voice posts by composite rank, one entry per story."""
     arts = voices_feed(conn, limit=200)
-    return unique_stories(rank_articles(conn, arts), limit)
+    srcmap = source_name_map(conn)
+    featured = [a for a in arts if srcmap.get(a.source_id, ("", ""))[0] == PRIORITY_VOICE]
+    rest = [a for a in arts if srcmap.get(a.source_id, ("", ""))[0] != PRIORITY_VOICE]
+    return unique_stories(featured + rank_articles(conn, rest), limit)
 
 
 def top_headlines(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:

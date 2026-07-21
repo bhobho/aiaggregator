@@ -87,11 +87,11 @@
       {% set path = request.url.path %}
       <nav class="ml-auto flex items-center gap-3 sm:gap-4 text-sm font-semibold">
         <a href="/" class="hover:accent {{ 'nav-active' if path == '/' }}">Home</a>
+        <a href="/blogs" class="hover:accent {{ 'nav-active' if path == '/blogs' }}">Blogs</a>
         <a href="/market" class="hover:accent {{ 'nav-active' if path.startswith('/market') }}">AI News</a>
         <a href="/tech" class="hover:accent {{ 'nav-active' if path == '/tech' }}">Tech News</a>
         <a href="/industry" class="hover:accent {{ 'nav-active' if path == '/industry' }}">Industry View</a>
         <a href="/architecture" class="hover:accent {{ 'nav-active' if path == '/architecture' }}">Architecture</a>
-        <a href="/blogs" class="hover:accent {{ 'nav-active' if path == '/blogs' }}">Blogs</a>
         <a href="/podcasts" class="hover:accent {{ 'nav-active' if path == '/podcasts' }}">Podcasts</a>
         <a href="/health" class="text-gray-500 hover:accent {{ 'nav-active' if path == '/health' }}">Sources</a>
       </nav>
