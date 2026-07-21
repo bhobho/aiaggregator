@@ -15,13 +15,13 @@
   <meta property="og:title" content="{{ og_title }}">
   <meta property="og:description" content="{{ og_desc }}">
   <meta property="og:url" content="{{ base }}{{ request.url.path }}">
-  <meta property="og:image" content="{{ base }}/static/og.png">
+  <meta property="og:image" content="{{ base }}/static/og-card.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{ og_title }}">
   <meta name="twitter:description" content="{{ og_desc }}">
-  <meta name="twitter:image" content="{{ base }}/static/og.png">
+  <meta name="twitter:image" content="{{ base }}/static/og-card.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -85,7 +85,7 @@
         </span>
       </a>
       {% set path = request.url.path %}
-      <nav class="ml-auto flex items-center gap-3 sm:gap-4 text-sm font-semibold">
+      <nav class="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:gap-4 text-sm font-semibold">
         <a href="/" class="hover:accent {{ 'nav-active' if path == '/' }}">My Page</a>
         <a href="/market" class="hover:accent {{ 'nav-active' if path.startswith('/market') }}">AI News</a>
         <a href="/tech" class="hover:accent {{ 'nav-active' if path == '/tech' }}">Tech News</a>
