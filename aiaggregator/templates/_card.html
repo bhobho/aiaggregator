@@ -2,7 +2,6 @@
 {% set src = srcmap.get(a.source_id, ('Source','news')) %}
 {% set scat = src[1] %}
 {% set label = (a.companies[0] if a.companies else src[0]) %}
-{% set lcolor = 'accent' %}
 {% set featured = featured|default(false) %}
 {% set compact = compact|default(false) %}
 {% set hide_source = hide_source|default(false) %}
@@ -27,62 +26,63 @@
   'extras': extras_payload,
 } %}
 
-<article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow
-                {% if featured %}p-6{% else %}p-4{% endif %}"
+<article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
          x-data="{ open:false }">
-  {% if a.image_url and not compact %}
+  {# Uniform 16:9 media, shown only when a story actually has an image (most of our
+     feeds don't supply one). Broken images remove the block so the card stays clean. #}
+  {% if not compact and a.image_url %}
   <a href="{{ a.url }}" target="_blank" rel="noopener"
-     onclick='return openArticle({{ payload | tojson }})'
-     class="block cursor-pointer {% if featured %}-m-6 mb-5{% else %}-m-4 mb-3{% endif %}">
+     onclick='return openArticle({{ payload | tojson }})' class="media">
     <img src="{{ a.image_url }}" alt="" loading="lazy"
-         class="w-full object-cover {% if featured %}h-60{% else %}h-40{% endif %}"
          onerror="this.closest('a').remove()">
   </a>
   {% endif %}
-  <div class="flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold">
-    {% if not hide_source %}<span class="{{ lcolor }}">{{ label }}</span>{% endif %}
-    {% set imp = a.importance or 0 %}
-    {% if imp >= 70 and not hide_source %}<span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>{% endif %}
-    <span class="text-gray-400 font-normal normal-case ml-auto">{{ a.published_at | timeago or (a.fetched_at | timeago) }}</span>
-  </div>
 
-  <a href="{{ a.url }}" target="_blank" rel="noopener"
-     onclick='return openArticle({{ payload | tojson }})'
-     class="block mt-2 font-bold text-gray-900 hover:accent leading-snug cursor-pointer
-            {% if featured %}text-2xl{% elif compact %}text-sm line-clamp-3{% else %}text-base line-clamp-2{% endif %}">
-    {{ a.title }}
-  </a>
-
-  {% if not compact %}
-    {% if a.summary %}
-      <p class="mt-2 text-sm text-gray-600 {% if featured %}line-clamp-4{% else %}line-clamp-3{% endif %}">{{ a.summary }}</p>
-    {% elif a.status == 'new' %}
-      <p class="mt-2 text-sm text-gray-400 italic line-clamp-2">{{ a.raw_summary[:160] }} · summarizing…</p>
-    {% else %}
-      <p class="mt-2 text-sm text-gray-600 line-clamp-2">{{ a.raw_summary[:160] }}</p>
-    {% endif %}
-
-    <div class="mt-3 flex flex-wrap items-center gap-1.5">
-      {% for t in a.tags %}
-      <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ t }}</span>
-      {% endfor %}
-      {% if not hide_source %}<span class="text-[11px] text-gray-400 ml-auto">{{ src[0] }}</span>{% endif %}
+  <div class="{% if featured %}p-6{% else %}p-4{% endif %}">
+    <div class="flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold">
+      {% if not hide_source %}<span class="accent">{{ label }}</span>{% endif %}
+      {% set imp = a.importance or 0 %}
+      {% if imp >= 70 and not hide_source %}<span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>{% endif %}
+      <span class="text-gray-400 font-normal normal-case ml-auto">{{ (a.published_at | timeago) or (a.fetched_at | timeago) }}</span>
     </div>
 
-    {% if g.extras %}
-    <div class="mt-3 border-t border-gray-100 pt-2">
-      <button type="button" @click="open=!open" class="text-xs accent font-semibold">
-        <span x-show="!open">Also reported by {{ g.extras|length }} other source{{ 's' if g.extras|length>1 else '' }}</span>
-        <span x-show="open" x-cloak>Hide sources</span>
-      </button>
-      <ul x-show="open" x-cloak class="mt-2 space-y-1">
-        {% for e in g.extras %}
-        {% set esrc = srcmap.get(e.source_id, ('Source','news')) %}
-        <li class="text-xs"><a href="{{ e.url }}" target="_blank" rel="noopener" class="text-gray-700 hover:accent">{{ e.title }}</a>
-          <span class="text-gray-400">· {{ esrc[0] }}</span></li>
+    <a href="{{ a.url }}" target="_blank" rel="noopener"
+       onclick='return openArticle({{ payload | tojson }})'
+       class="block mt-1.5 font-bold text-gray-900 hover:accent leading-snug cursor-pointer
+              {% if featured %}text-2xl{% elif compact %}text-sm line-clamp-3{% else %}text-base line-clamp-2{% endif %}">
+      {{ a.title }}
+    </a>
+
+    {% if not compact %}
+      {% if a.summary %}
+        <p class="mt-2 text-sm text-gray-600 {% if featured %}line-clamp-3{% else %}line-clamp-2{% endif %}">{{ a.summary }}</p>
+      {% elif a.status == 'new' %}
+        <p class="mt-2 text-sm text-gray-400 italic line-clamp-2">{{ a.raw_summary[:160] }} · summarizing…</p>
+      {% endif %}
+
+      {% if a.tags %}
+      <div class="mt-3 flex flex-wrap items-center gap-1.5">
+        {% for t in a.tags %}
+        <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ t }}</span>
         {% endfor %}
-      </ul>
-    </div>
+      </div>
+      {% endif %}
+
+      {% if g.extras %}
+      <div class="mt-3 border-t border-gray-100 pt-2">
+        <button type="button" @click="open=!open" class="text-xs accent font-semibold">
+          <span x-show="!open">Also reported by {{ g.extras|length }} other source{{ 's' if g.extras|length>1 else '' }}</span>
+          <span x-show="open" x-cloak>Hide sources</span>
+        </button>
+        <ul x-show="open" x-cloak class="mt-2 space-y-1">
+          {% for e in g.extras %}
+          {% set esrc = srcmap.get(e.source_id, ('Source','news')) %}
+          <li class="text-xs"><a href="{{ e.url }}" target="_blank" rel="noopener" class="text-gray-700 hover:accent">{{ e.title }}</a>
+            <span class="text-gray-400">· {{ esrc[0] }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
     {% endif %}
-  {% endif %}
+  </div>
 </article>

@@ -18,9 +18,9 @@
   </section>
 
   {% if rest %}
-  <div class="flex items-center gap-3 mb-4">
+  <div class="flex items-center gap-2.5 mb-5">
+    <span class="bg-accent" style="display:inline-block;width:4px;height:22px;border-radius:2px"></span>
     <h2 class="text-lg font-extrabold uppercase tracking-wide">Latest News</h2>
-    <span class="h-px bg-gray-300 flex-1"></span>
   </div>
   <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
     {% for g in rest %}{% include "_card.html" %}{% endfor %}

@@ -27,38 +27,47 @@
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* Editorial theme: warm paper background, deep-red accent, serif display type */
-    :root { --accent:#a31621; }
-    body { background:#faf7f0; color:#191919; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    /* Clean news theme (BBC-inspired): white ground, one sans family, red accent,
+       uniform 16:9 imagery. */
+    :root { --accent:#a31621; --ink:#141414; --muted:#565b63; --faint:#9aa0a8;
+            --line:#e6e7e9; --panel:#f2f3f5; }
+    body { background:#ffffff; color:var(--ink);
+           font-family:"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
     .accent { color: var(--accent); }
     .bg-accent { background: var(--accent); }
-    .bg-white { background:#fffdf7 !important; }
-    article, aside > div, .rounded-lg { border-color:#e6dfd0 !important; border-radius:2px !important; }
-    header { border-bottom:3px double #191919 !important; }
-    h1, h2, h3, article a.font-bold, aside li a { font-family:"Playfair Display", Georgia, serif; letter-spacing:-0.01em; }
-    article p { font-family:"Source Serif 4", Georgia, serif; }
-    /* Banner: a wide masthead strip cropped to ~10.7:1 so it fills the header
-       band edge-to-edge without an awkward crop. Pinned with the masthead. */
-    .banner-hero {
-      background-image: url('/static/banner-strip.jpg');
-      background-size: cover;
-      background-position: center center;
-    }
-    nav a.nav-active { color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
-    /* Nasdaq AI stock tape: ink-black strip, seamless marquee (content rendered twice) */
-    #ticker-bar { background:#191919; display:none; }
+    .bg-white { background:#ffffff !important; }
+    /* Clean cards: hairline border with a red left-accent stripe. Squared corners,
+       per the single-sided-border rule. Sidebar panels keep the plain rounded hairline. */
+    aside > div, .rounded-lg { border-color:var(--line) !important; border-radius:8px !important; }
+    article.rounded-lg { border-color:var(--line) !important; border-left:3px solid var(--accent) !important;
+                         border-radius:0 !important; }
+    h1, h2, h3 { letter-spacing:-0.015em; }
+    /* Masthead: white bar under the banner, with the signature red rule below the nav. */
+    header { border-bottom:3px solid var(--accent) !important; }
+    .banner-hero { background-image:url('/static/banner-strip.jpg'); background-size:cover; background-position:center center; }
+    nav a { color: var(--ink); }
+    nav a.nav-active { color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 4px; }
+
+    /* Consistent 16:9 media block for every card; tidy labelled placeholder when a
+       story has no image, so the grid reads uniform. */
+    .media { display:block; aspect-ratio:16/9; overflow:hidden; background:var(--panel); }
+    .media img { width:100%; height:100%; object-fit:cover; display:block; }
+
+    /* AI stock tape */
+    #ticker-bar { background:#141414; display:none; }
     .ticker-track { display:inline-flex; white-space:nowrap; animation:ticker-scroll 55s linear infinite; }
     .ticker-track:hover { animation-play-state:paused; }
     @keyframes ticker-scroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
     .ticker-item { display:inline-flex; align-items:baseline; gap:.4rem; padding:.35rem 1.1rem; font-size:.75rem; }
-    .ticker-item .sym { color:#faf7f0; font-weight:700; letter-spacing:.04em; }
-    .ticker-item .px { color:#c9c2b4; font-variant-numeric:tabular-nums; }
-    .ticker-item .up { color:#7fbf8e; font-variant-numeric:tabular-nums; }
-    .ticker-item .down { color:#e08a8a; font-variant-numeric:tabular-nums; }
+    .ticker-item .sym { color:#ffffff; font-weight:700; letter-spacing:.04em; }
+    .ticker-item .px { color:#b9bdc4; font-variant-numeric:tabular-nums; }
+    .ticker-item .up { color:#54a56f; font-variant-numeric:tabular-nums; }
+    .ticker-item .down { color:#d67a7a; font-variant-numeric:tabular-nums; }
     .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     .line-clamp-3 { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .line-clamp-4 { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
     [x-cloak]{ display:none !important; }
     /* refresh button busy state (htmx adds .htmx-request to the form while loading) */
     .hx-busy{ display:none; }
@@ -68,7 +77,7 @@
 </head>
 <body class="min-h-screen">
   <!-- Banner + masthead: pinned together while scrolling -->
-  <div class="sticky top-0 z-40" style="background:#faf7f0;">
+  <div class="sticky top-0 z-40" style="background:#ffffff;">
   <div class="max-w-7xl mx-auto px-4 pt-4">
     <div class="banner-hero w-full h-20 sm:h-28 rounded-lg border border-gray-200"></div>
   </div>
@@ -156,7 +165,7 @@
       </div>
 
       <template x-if="a.image_url">
-        <img :src="a.image_url" alt="" class="mt-3 w-full h-48 sm:h-56 object-cover rounded-lg"
+        <img :src="a.image_url" alt="" class="mt-3 w-full aspect-video object-cover rounded-lg"
              @error="$el.style.display='none'">
       </template>
 
