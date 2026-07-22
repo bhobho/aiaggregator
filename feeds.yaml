@@ -98,9 +98,13 @@ sources:
     company: Perplexity
 
   # ---- Blogs ----
-  # Featured author — pinned to the top of the Blogs tab (see queries.PRIORITY_VOICE).
+  # Featured author — own posts, pinned to the top of the Blogs tab and shown in
+  # full on My Page (see queries.MY_SOURCES).
   - name: Neeraj Pandey (Medium)
     url: https://medium.com/feed/@neeraj4321
+    category: blog
+  - name: Neeraj Pandey (Hashnode)
+    url: https://ainewslearn.hashnode.dev/rss.xml
     category: blog
   - name: Hugging Face Blog
     url: https://huggingface.co/blog/feed.xml

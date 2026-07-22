@@ -67,7 +67,7 @@ async def index(request: Request):
     try:
         ctx = {
             "request": request,
-            "medium_groups": queries.group_clusters(queries.my_medium_feed(conn, limit=60)),
+            "posts_groups": queries.group_clusters(queries.my_posts_feed(conn, limit=60)),
             "srcmap": queries.source_name_map(conn),
             "stats": queries.stats(conn),
         }
@@ -291,7 +291,7 @@ async def post_view(request: Request, article_id: int):
         article = Article.from_row(row)
         srcmap = queries.source_name_map(conn)
         srcname = srcmap.get(article.source_id, ("Source", "news"))[0]
-        is_own = srcname == queries.PRIORITY_VOICE
+        is_own = srcname in queries.MY_SOURCES
 
         full_html = sanitize.clean(article.content) if (is_own and article.content) else ""
         summary = article.summary or (article.raw_summary or "")[:600]

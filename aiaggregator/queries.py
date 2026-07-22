@@ -248,9 +248,11 @@ def group_clusters(articles: list[Article]) -> list[dict]:
 # blog's latest post directly and /blogs lists them all.
 # The featured author whose posts are pinned to the top of the Blogs tab.
 PRIORITY_VOICE = "Neeraj Pandey (Medium)"
+SECOND_VOICE = "Neeraj Pandey (Hashnode)"
 
 VOICE_SOURCES = {
     PRIORITY_VOICE,
+    SECOND_VOICE,
     "Hugging Face Blog",
     "Sebastian Raschka Blog",
     "Towards AI",
@@ -348,22 +350,32 @@ def _named_sources_feed(conn: sqlite3.Connection, names: set[str],
 
 
 def voices_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
-    # Pin the featured author's posts to the top, then the rest of the trusted
-    # voices newest-first. Fetched separately so the featured posts surface even
-    # when they're older than the recent-window cutoff of the other blogs.
-    featured = _named_sources_feed(conn, {PRIORITY_VOICE}, limit)
-    rest = _named_sources_feed(conn, VOICE_SOURCES - {PRIORITY_VOICE}, limit)
+    # Pin the owner's own posts to the top, then the rest of the trusted voices
+    # newest-first. Fetched separately so the owner's posts surface even when
+    # they're older than the recent-window cutoff of the other blogs.
+    featured = _named_sources_feed(conn, MY_SOURCES, limit)
+    rest = _named_sources_feed(conn, VOICE_SOURCES - MY_SOURCES, limit)
     return dedupe_stories(featured + rest)[:limit]
 
 
 def featured_voice_feed(conn: sqlite3.Connection, limit: int = 5) -> list[Article]:
-    """The pinned author's latest blog posts — powers the Home 'Featured Blogs' panel."""
-    return _named_sources_feed(conn, {PRIORITY_VOICE}, limit)
+    """The owner's latest blog posts — powers the Home 'Featured Blogs' panel."""
+    return _named_sources_feed(conn, MY_SOURCES, limit)
 
 
-# ---- "My Page": the site owner's own posts (Medium + LinkedIn) --------------
-MY_MEDIUM_SOURCE = PRIORITY_VOICE          # "Neeraj Pandey (Medium)"
+# ---- "My Page": the site owner's own posts (Medium + Hashnode) --------------
+MY_MEDIUM_SOURCE = PRIORITY_VOICE            # "Neeraj Pandey (Medium)"
+MY_HASHNODE_SOURCE = SECOND_VOICE            # "Neeraj Pandey (Hashnode)"
 MY_LINKEDIN_SOURCE = "Neeraj Pandey (LinkedIn)"
+
+# Sources whose posts are the owner's own: shown on My Page and rendered in full
+# in-portal (see routes.dashboard.post_view).
+MY_SOURCES = {MY_MEDIUM_SOURCE, MY_HASHNODE_SOURCE}
+
+
+def my_posts_feed(conn: sqlite3.Connection, limit: int = 60) -> list[Article]:
+    """All of the owner's own posts (Medium + Hashnode), newest first."""
+    return _named_sources_feed(conn, MY_SOURCES, limit)
 
 
 def my_medium_feed(conn: sqlite3.Connection, limit: int = 60) -> list[Article]:
@@ -489,8 +501,8 @@ def top_voices(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
     the other trusted-voice posts by composite rank, one entry per story."""
     arts = voices_feed(conn, limit=200)
     srcmap = source_name_map(conn)
-    featured = [a for a in arts if srcmap.get(a.source_id, ("", ""))[0] == PRIORITY_VOICE]
-    rest = [a for a in arts if srcmap.get(a.source_id, ("", ""))[0] != PRIORITY_VOICE]
+    featured = [a for a in arts if srcmap.get(a.source_id, ("", ""))[0] in MY_SOURCES]
+    rest = [a for a in arts if srcmap.get(a.source_id, ("", ""))[0] not in MY_SOURCES]
     return unique_stories(featured + rank_articles(conn, rest), limit)
 
 
