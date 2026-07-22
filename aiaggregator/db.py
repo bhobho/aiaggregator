@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS articles (
     importance   INTEGER,
     cluster_id   INTEGER,
     image_url    TEXT,
+    content      TEXT,
     UNIQUE(source_id, guid)
 );
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
@@ -118,6 +119,8 @@ def init_db(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE articles ADD COLUMN embedding BLOB")
     if "image_url" not in cols:
         conn.execute("ALTER TABLE articles ADD COLUMN image_url TEXT")
+    if "content" not in cols:
+        conn.execute("ALTER TABLE articles ADD COLUMN content TEXT")
     conn.commit()
 
 
@@ -190,10 +193,10 @@ def insert_article(conn: sqlite3.Connection, a: Article) -> int | None:
     cur = conn.execute(
         """INSERT OR IGNORE INTO articles
            (source_id, guid, url, title, author, published_at, fetched_at,
-            raw_summary, content_hash, image_url, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')""",
+            raw_summary, content_hash, image_url, content, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')""",
         (a.source_id, a.guid, a.url, a.title, a.author, a.published_at,
-         a.fetched_at or now_iso(), a.raw_summary, a.content_hash, a.image_url),
+         a.fetched_at or now_iso(), a.raw_summary, a.content_hash, a.image_url, a.content),
     )
     conn.commit()
     return cur.lastrowid if cur.rowcount else None
@@ -206,6 +209,17 @@ def backfill_image(conn: sqlite3.Connection, source_id: int, guid: str,
         """UPDATE articles SET image_url=?
            WHERE source_id=? AND guid=? AND COALESCE(image_url,'')=''""",
         (image_url, source_id, guid),
+    )
+    conn.commit()
+
+
+def backfill_content(conn: sqlite3.Connection, source_id: int, guid: str,
+                     content: str) -> None:
+    """Set full content on an existing article that doesn't have it yet."""
+    conn.execute(
+        """UPDATE articles SET content=?
+           WHERE source_id=? AND guid=? AND COALESCE(content,'')=''""",
+        (content, source_id, guid),
     )
     conn.commit()
 

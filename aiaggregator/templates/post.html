@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ article.title }} · AI Aggregator{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="/" class="text-xs font-semibold accent">← My Page</a>
+
+  <div class="mt-4 flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold">
+    <span class="accent">{{ srcname }}</span>
+    <span class="text-gray-400 font-normal normal-case">{{ (article.published_at | timeago) or (article.fetched_at | timeago) }}</span>
+  </div>
+
+  <h1 class="mt-2 text-3xl sm:text-4xl font-extrabold leading-tight">{{ article.title }}</h1>
+
+  {% if article.image_url %}
+  <img src="{{ article.image_url }}" alt="" class="mt-6 w-full aspect-video object-cover rounded-lg"
+       onerror="this.style.display='none'">
+  {% endif %}
+
+  {% if full_html %}
+    <div class="article-body mt-7">{{ full_html | safe }}</div>
+  {% else %}
+    <p class="mt-6 text-lg text-gray-700 leading-relaxed">{{ summary }}</p>
+    <div class="mt-6">
+      <a href="{{ article.url }}" target="_blank" rel="noopener"
+         class="inline-block bg-accent text-white text-sm font-semibold px-4 py-2 rounded">Read full story ↗</a>
+    </div>
+  {% endif %}
+
+  {% if article.tags %}
+  <div class="mt-7 flex flex-wrap gap-1.5">
+    {% for t in article.tags %}
+    <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ t }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="mt-8 pt-5 border-t border-gray-200 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ post_url | urlencode }}"
+       target="_blank" rel="noopener"
+       class="inline-flex items-center gap-2 bg-accent text-white text-sm font-semibold px-4 py-2 rounded hover:opacity-90">
+      Share on LinkedIn
+    </a>
+    {% if is_own %}
+    <a href="{{ article.url }}" target="_blank" rel="noopener" class="text-sm font-semibold accent">View original on Medium ↗</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

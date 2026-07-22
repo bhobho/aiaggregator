@@ -99,6 +99,16 @@ def _entry_url(entry, shared_links: set[str]) -> str:
     return link
 
 
+def _entry_content(entry) -> str | None:
+    """Full post HTML from `content:encoded`/Atom content, if the feed carries it."""
+    content = entry.get("content")
+    if content and isinstance(content, list):
+        value = (content[0].get("value") or "").strip()
+        if value:
+            return value[:400000]  # cap very long posts
+    return None
+
+
 def parse_feed(body: bytes, source_id: int, *, is_community: bool = False,
                keywords: list[str] | None = None) -> list[Article]:
     parsed = feedparser.parse(body)
@@ -135,6 +145,7 @@ def parse_feed(body: bytes, source_id: int, *, is_community: bool = False,
                 raw_summary=raw_summary[:2000],
                 content_hash=content_hash(title, url),
                 image_url=_entry_image(entry),
+                content=_entry_content(entry),
             )
         )
     return out

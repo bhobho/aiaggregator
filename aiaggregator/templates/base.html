@@ -5,23 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}AI Aggregator — AI &amp; Agentic-AI News{% endblock %}</title>
 
-  {# Absolute base for link-preview (Open Graph) URLs: configured public_url, else request host #}
+  {# Absolute base for link-preview (Open Graph) URLs: configured public_url, else request host.
+     Per-article pages pass og_title / og_desc / og_image / og_type / canonical in the context;
+     everything else falls back to the site defaults. #}
   {% set base = public_url if public_url else (request.base_url|string).rstrip('/') %}
-  {% set og_title = self.title() %}
-  {% set og_desc = "AI & Agentic-AI news, aggregated from public RSS feeds and summarized locally — labs, research, and major tech outlets, ranked and clustered." %}
-  <meta name="description" content="{{ og_desc }}">
-  <meta property="og:type" content="website">
+  {% set _ogt = og_title|default(self.title(), true) %}
+  {% set _ogd = og_desc|default("AI & Agentic-AI news, aggregated from public RSS feeds and summarized locally — labs, research, and major tech outlets, ranked and clustered.", true) %}
+  {% set _ogi = og_image|default(base ~ '/static/og-card.png', true) %}
+  {% set _ogtype = og_type|default('website', true) %}
+  {% set _canon = canonical|default('', true) %}
+  <meta name="description" content="{{ _ogd }}">
+  <meta property="og:type" content="{{ _ogtype }}">
   <meta property="og:site_name" content="AI Aggregator">
-  <meta property="og:title" content="{{ og_title }}">
-  <meta property="og:description" content="{{ og_desc }}">
+  <meta property="og:title" content="{{ _ogt }}">
+  <meta property="og:description" content="{{ _ogd }}">
   <meta property="og:url" content="{{ base }}{{ request.url.path }}">
-  <meta property="og:image" content="{{ base }}/static/og-card.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
+  <meta property="og:image" content="{{ _ogi }}">
+  {% if _ogi.endswith('og-card.png') %}<meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">{% endif %}
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{{ og_title }}">
-  <meta name="twitter:description" content="{{ og_desc }}">
-  <meta name="twitter:image" content="{{ base }}/static/og-card.png">
+  <meta name="twitter:title" content="{{ _ogt }}">
+  <meta name="twitter:description" content="{{ _ogd }}">
+  <meta name="twitter:image" content="{{ _ogi }}">
+  {% if _canon %}<link rel="canonical" href="{{ _canon }}">{% endif %}
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -54,6 +60,23 @@
        story has no image, so the grid reads uniform. */
     .media { display:block; aspect-ratio:16/9; overflow:hidden; background:var(--panel); }
     .media img { width:100%; height:100%; object-fit:cover; display:block; }
+
+    /* Full-post reading column (rendered from sanitized feed content). */
+    .article-body { font-size:1.075rem; line-height:1.75; color:#26292f; }
+    .article-body p { margin:0 0 1.15rem; }
+    .article-body h1, .article-body h2 { font-size:1.5rem; font-weight:700; margin:2rem 0 .7rem; letter-spacing:-0.01em; }
+    .article-body h3, .article-body h4 { font-size:1.2rem; font-weight:700; margin:1.6rem 0 .5rem; }
+    .article-body a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
+    .article-body ul, .article-body ol { margin:0 0 1.15rem 1.4rem; }
+    .article-body li { margin:.35rem 0; }
+    .article-body img { width:100%; height:auto; border-radius:8px; margin:1.3rem 0; }
+    .article-body figure { margin:1.3rem 0; }
+    .article-body figcaption { font-size:.86rem; color:var(--faint); text-align:center; margin-top:.5rem; }
+    .article-body blockquote { border-left:3px solid var(--accent); padding:.2rem 0 .2rem 1.1rem; margin:1.3rem 0; color:#4a4f57; font-style:italic; }
+    .article-body pre { background:var(--panel); padding:1rem 1.1rem; border-radius:8px; overflow-x:auto; font-size:.9rem; margin:1.2rem 0; }
+    .article-body code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--panel); padding:.12em .35em; border-radius:4px; font-size:.9em; }
+    .article-body pre code { background:none; padding:0; }
+    .article-body hr { border:0; border-top:1px solid var(--line); margin:2rem 0; }
 
     /* AI stock tape */
     #ticker-bar { background:#141414; display:none; }

@@ -35,6 +35,7 @@ class Article:
     fetched_at: str | None = None
     raw_summary: str = ""
     image_url: str | None = None  # lead/thumbnail image from the feed item, if any
+    content: str | None = None    # full post HTML (content:encoded), when the feed carries it
     # enrichment
     status: str = "new"  # new | enriched | failed
     summary: str | None = None
@@ -58,6 +59,7 @@ class Article:
             fetched_at=row["fetched_at"],
             raw_summary=row["raw_summary"] or "",
             image_url=row["image_url"] if "image_url" in keys else None,
+            content=row["content"] if "content" in keys else None,
             status=row["status"],
             summary=row["summary"],
             tags=json.loads(row["tags"]) if row["tags"] else [],

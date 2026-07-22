@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 
-from .. import db, market as marketmod, queries, ticker as tickermod, vendors as vendormod
+from .. import (db, market as marketmod, queries, sanitize, ticker as tickermod,
+                vendors as vendormod)
+from ..config import settings
 from ..enrich import summarize as summarize_mod
+from ..models import Article
 
 router = APIRouter()
 
@@ -273,6 +276,49 @@ async def article_summary(article_id: int):
         return {"id": article_id, "summary": fallback}
     finally:
         conn.close()
+
+
+@router.get("/post/{article_id}", response_class=HTMLResponse)
+async def post_view(request: Request, article_id: int):
+    """In-portal article page. The owner's own posts (the pinned Medium source)
+    render in full from the sanitized feed content; everything else shows the
+    summary with a link out (we don't republish other outlets' full text)."""
+    conn = db.connect()
+    try:
+        row = db.get_article_row(conn, article_id)
+        if row is None:
+            return PlainTextResponse("Not found", status_code=404)
+        article = Article.from_row(row)
+        srcmap = queries.source_name_map(conn)
+        srcname = srcmap.get(article.source_id, ("Source", "news"))[0]
+        is_own = srcname == queries.PRIORITY_VOICE
+
+        full_html = sanitize.clean(article.content) if (is_own and article.content) else ""
+        summary = article.summary or (article.raw_summary or "")[:600]
+
+        base = settings.public_url.rstrip("/") if settings.public_url \
+            else str(request.base_url).rstrip("/")
+        post_url = f"{base}/post/{article.id}"
+        ctx = {
+            "request": request,
+            "article": article,
+            "srcname": srcname,
+            "is_own": is_own,
+            "full_html": full_html,
+            "summary": summary,
+            "base": base,
+            "post_url": post_url,
+            # per-article link-preview metadata (see base.html)
+            "og_title": article.title,
+            "og_desc": (summary or article.title)[:200],
+            "og_image": article.image_url or "",
+            "og_type": "article",
+            "canonical": post_url,
+        }
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "post.html", ctx)
 
 
 @router.get("/market", response_class=HTMLResponse)
