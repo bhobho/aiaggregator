@@ -12,6 +12,7 @@ from ..enrich import ollama_client
 router = APIRouter()
 
 
+@router.get("/sources", response_class=HTMLResponse)
 @router.get("/health", response_class=HTMLResponse)
 async def health(request: Request):
     conn = db.connect()

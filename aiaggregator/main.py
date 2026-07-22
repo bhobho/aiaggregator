@@ -18,7 +18,7 @@ from .ingest import pipeline
 from .routes import admin, dashboard
 from .timefmt import timeago
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.ERROR,
                     format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("aiaggregator")
 

@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     ollama_timeout: float = 120.0
 
     # Scheduling (seconds)
-    fetch_interval: int = 1800   # fetch feeds every 30 min
+    fetch_interval: int = 43200  # fetch feeds every 12 hours
     enrich_interval: int = 60    # drain enrichment queue every 60 s
     enrich_batch: int = 8        # articles per enrichment pass
 
