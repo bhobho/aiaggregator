@@ -10,6 +10,8 @@ monochrome list — one hue per person, never reused.
 """
 from __future__ import annotations
 
+import random
+
 VISIONARY_VIDEOS: list[dict] = [
     {
         "person": "Geoffrey Hinton",
@@ -68,3 +70,10 @@ VISIONARY_VIDEOS: list[dict] = [
         "bg": "#FCEBEB", "label": "#791F1F", "title_color": "#501313",
     },
 ]
+
+
+def shuffled() -> list[dict]:
+    """A freshly-shuffled copy, so the sidebar order rotates on every page load."""
+    videos = VISIONARY_VIDEOS.copy()
+    random.shuffle(videos)
+    return videos

@@ -77,7 +77,7 @@ async def index(request: Request):
                        "architecture — practitioner notes on building AI systems.",
             "srcmap": queries.source_name_map(conn),
             "stats": queries.stats(conn),
-            "visionary_videos": videosmod.VISIONARY_VIDEOS,
+            "visionary_videos": videosmod.shuffled(),
         }
     finally:
         conn.close()
