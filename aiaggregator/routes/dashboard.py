@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from .. import (db, market as marketmod, queries, sanitize, ticker as tickermod,
-                vendors as vendormod)
+                vendors as vendormod, videos as videosmod)
 from ..config import settings
 from ..enrich import summarize as summarize_mod
 from ..models import Article
@@ -39,7 +39,8 @@ def _filters(company, category, days, min_importance, sort) -> queries.FeedFilte
 
 def _feed_context(request: Request, f: queries.FeedFilters, *,
                   heading: str | None = None, sub: str | None = None,
-                  chips: list | None = None, desc: str | None = None) -> dict:
+                  chips: list | None = None, desc: str | None = None,
+                  robots_meta: str | None = None) -> dict:
     conn = db.connect()
     try:
         articles = queries.dedupe_stories(queries.feed(conn, f))
@@ -57,6 +58,7 @@ def _feed_context(request: Request, f: queries.FeedFilters, *,
             "sub": sub,
             "chips": chips,
             "og_desc": desc,   # unique meta description per section
+            "robots_meta": robots_meta,
         }
     finally:
         conn.close()
@@ -75,6 +77,7 @@ async def index(request: Request):
                        "architecture — practitioner notes on building AI systems.",
             "srcmap": queries.source_name_map(conn),
             "stats": queries.stats(conn),
+            "visionary_videos": videosmod.VISIONARY_VIDEOS,
         }
     finally:
         conn.close()
@@ -259,6 +262,65 @@ async def podcasts_view(request: Request):
         }
     finally:
         conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
+
+
+@router.get("/topic/{tag}", response_class=HTMLResponse)
+async def topic_view(request: Request, tag: str):
+    # Evergreen topic pages (/topic/agents, /topic/llms, ...) — one per tag in
+    # the enrichment vocabulary. Article tag chips link here (see _card.html /
+    # post.html), which also gives crawlers a path into the archive by theme.
+    if tag not in summarize_mod.TAG_VOCAB:
+        return PlainTextResponse("Not found", status_code=404)
+    conn = db.connect()
+    try:
+        articles = queries.topic_feed(conn, tag, limit=60)
+        ctx = {
+            "request": request,
+            "groups": queries.group_clusters(articles),
+            "srcmap": queries.source_name_map(conn),
+            "stats": queries.stats(conn),
+            "top_headlines": queries.top_topic(conn, tag, limit=8),
+            "headlines_title": "Top Stories",
+            "voices": None,
+            "filters": None,
+            "heading": f"#{tag}",
+            "sub": f"AI stories tagged “{tag}”, ranked by coverage, recency and significance",
+            "chips": None,
+            "og_desc": f"AI news and analysis tagged {tag} — ranked and de-duplicated "
+                       "from public sources.",
+        }
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
+
+
+@router.get("/search", response_class=HTMLResponse)
+async def search_view(request: Request, q: str = ""):
+    # Search results are thin/duplicate by nature (a re-slice of already-indexed
+    # pages), so they're crawlable but not indexed — the same policy as
+    # syndicated article pages.
+    q = q.strip()
+    if not q:
+        ctx = {
+            "request": request, "groups": [], "srcmap": {}, "stats": None,
+            "top_headlines": [], "voices": None, "filters": None,
+            "heading": "Search", "sub": "enter a search term above", "chips": None,
+            "robots_meta": "noindex, follow",
+        }
+        templates = request.app.state.templates
+        return templates.TemplateResponse(request, "index.html", ctx)
+
+    f = queries.FeedFilters(search=q, sort="newest", limit=60)
+    ctx = _feed_context(
+        request, f,
+        heading=f"Search: “{q}”",
+        sub=None,
+        robots_meta="noindex, follow",
+    )
+    ctx["sub"] = f"{len(ctx['groups'])} result{'s' if len(ctx['groups']) != 1 else ''}"
     templates = request.app.state.templates
     return templates.TemplateResponse(request, "index.html", ctx)
 

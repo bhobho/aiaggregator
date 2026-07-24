@@ -40,19 +40,33 @@
   {% if article.tags %}
   <div class="mt-7 flex flex-wrap gap-1.5">
     {% for t in article.tags %}
-    <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ t }}</span>
+    <a href="/topic/{{ t }}" class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 hover:accent">{{ t }}</a>
     {% endfor %}
   </div>
   {% endif %}
 
-  <div class="mt-8 pt-5 border-t border-gray-200 flex flex-wrap items-center gap-x-4 gap-y-2">
+  <div class="mt-8 pt-5 border-t border-gray-200 flex flex-wrap items-center gap-x-3 gap-y-2">
     <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ post_url | urlencode }}"
        target="_blank" rel="noopener"
        class="inline-flex items-center gap-2 bg-accent text-white text-sm font-semibold px-4 py-2 rounded hover:opacity-90">
       Share on LinkedIn
     </a>
+    <a href="https://twitter.com/intent/tweet?url={{ post_url | urlencode }}&text={{ article.title | urlencode }}"
+       target="_blank" rel="noopener"
+       class="inline-flex items-center gap-2 border border-gray-300 text-sm font-semibold px-4 py-2 rounded hover:bg-gray-50">
+      Share on X
+    </a>
+    <a href="https://api.whatsapp.com/send?text={{ (article.title ~ ' ' ~ post_url) | urlencode }}"
+       target="_blank" rel="noopener"
+       class="inline-flex items-center gap-2 border border-gray-300 text-sm font-semibold px-4 py-2 rounded hover:bg-gray-50">
+      WhatsApp
+    </a>
+    <button type="button" onclick='return copyLink(this, {{ post_url | tojson }})'
+       class="inline-flex items-center gap-2 border border-gray-300 text-sm font-semibold px-4 py-2 rounded hover:bg-gray-50">
+      Copy link
+    </button>
     <a href="{{ article.url }}" target="_blank" rel="noopener" onclick='trackOutbound({{ article.url | tojson }})'
-       class="text-sm font-semibold accent">View original ↗</a>
+       class="text-sm font-semibold accent ml-auto">View original ↗</a>
   </div>
 </div>
 {% endblock %}

@@ -531,6 +531,26 @@ def top_headlines(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
     return arts
 
 
+def topic_feed(conn: sqlite3.Connection, tag: str, limit: int = 60) -> list[Article]:
+    """Ranked, de-duplicated stories carrying the given tag — powers /topic/{tag}.
+    Tags are stored as a JSON array string (see Article.tags), so this matches the
+    same LIKE-on-JSON pattern FeedFilters.company already uses."""
+    rows = conn.execute(
+        """SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
+           WHERE s.active = 1 AND a.tags LIKE ?
+           ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT ?""",
+        (f'%"{tag}"%', limit * 3),
+    ).fetchall()
+    arts = [Article.from_row(r) for r in rows]
+    return dedupe_stories(rank_articles(conn, arts))[:limit]
+
+
+def top_topic(conn: sqlite3.Connection, tag: str, limit: int = 8) -> list[Article]:
+    """Top stories for a topic page's sidebar, one entry per story."""
+    arts = topic_feed(conn, tag, limit=200)
+    return unique_stories(arts, limit)
+
+
 def companies(conn: sqlite3.Connection) -> list[str]:
     rows = conn.execute(
         "SELECT DISTINCT company FROM sources WHERE company IS NOT NULL ORDER BY company"

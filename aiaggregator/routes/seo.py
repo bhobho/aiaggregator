@@ -1,13 +1,14 @@
-"""SEO endpoints: robots.txt and sitemap.xml.
+"""SEO endpoints: robots.txt, sitemap.xml, and our own feed.xml.
 
 The sitemap lists only pages we actually allow into the index — the home page,
-the section pages, and the owner's own posts. Aggregated third-party article
-pages are served with `noindex, follow` (see routes.dashboard.post_view), so
-they are deliberately absent here.
+the section pages, topic pages, and the owner's own posts. Aggregated
+third-party article pages are served with `noindex, follow` (see
+routes.dashboard.post_view), so they are deliberately absent here.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from email.utils import format_datetime
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Request
@@ -15,6 +16,7 @@ from fastapi.responses import PlainTextResponse, Response
 
 from .. import db, queries
 from ..config import settings
+from ..enrich.summarize import TAG_VOCAB
 
 router = APIRouter()
 
@@ -62,6 +64,7 @@ async def sitemap(request: Request) -> Response:
     rows: list[tuple[str, str, str, str]] = [
         (f"{base}{path}", today, "daily", pri) for path, pri in SECTIONS
     ]
+    rows += [(f"{base}/topic/{tag}", today, "daily", "0.6") for tag in TAG_VOCAB]
     conn = db.connect()
     try:
         for a in queries.my_posts_feed(conn, limit=500):
@@ -78,3 +81,59 @@ async def sitemap(request: Request) -> Response:
         )
     parts.append("</urlset>")
     return Response("\n".join(parts), media_type="application/xml")
+
+
+def _parse_dt(ts: str | None) -> datetime:
+    if ts:
+        try:
+            dt = datetime.fromisoformat(ts)
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    return datetime.now(timezone.utc)
+
+
+@router.get("/feed.xml", include_in_schema=False)
+async def feed_xml(request: Request) -> Response:
+    """Our own RSS feed: the top-ranked AI stories, deduplicated, linking to
+    their in-portal /post/{id} page (not the original source) so subscribers
+    land on the site — the same "keep readers in-portal" policy as everywhere
+    else. A free distribution channel into feed readers, Feedly, IFTTT, etc."""
+    base = base_url(request)
+    conn = db.connect()
+    try:
+        articles = queries.dedupe_stories(queries.ranked_enriched(conn, days=7, limit=40))
+    finally:
+        conn.close()
+
+    items = []
+    for a in articles:
+        link = f"{base}/post/{a.id}"
+        desc = escape(a.summary or (a.raw_summary or "")[:300])
+        pub = format_datetime(_parse_dt(a.published_at or a.fetched_at))
+        items.append(
+            f"    <item>\n"
+            f"      <title>{escape(a.title)}</title>\n"
+            f"      <link>{escape(link)}</link>\n"
+            f"      <guid isPermaLink=\"true\">{escape(link)}</guid>\n"
+            f"      <description>{desc}</description>\n"
+            f"      <pubDate>{pub}</pubDate>\n"
+            f"    </item>"
+        )
+
+    channel_desc = escape(
+        "AI & Agentic-AI news, ranked and de-duplicated — labs, research, "
+        "and major tech outlets, summarized locally."
+    )
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0"><channel>\n'
+        f"  <title>AI Aggregator — Top AI Stories</title>\n"
+        f"  <link>{escape(base)}/</link>\n"
+        f"  <description>{channel_desc}</description>\n"
+        f"  <language>en-us</language>\n"
+        f"  <lastBuildDate>{format_datetime(datetime.now(timezone.utc))}</lastBuildDate>\n"
+        + "\n".join(items) +
+        "\n</channel></rss>"
+    )
+    return Response(body, media_type="application/rss+xml")

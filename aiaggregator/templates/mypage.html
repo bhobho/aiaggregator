@@ -5,13 +5,72 @@
   <span class="text-sm text-gray-500">my articles &amp; posts on AI, agents &amp; architecture</span>
 </div>
 
-{% if posts_groups %}
-<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-  {% for g in posts_groups %}{% with hide_source = True, permalink = True %}{% include "_card.html" %}{% endwith %}{% endfor %}
-</section>
-{% else %}
-<div class="bg-white border border-gray-200 rounded-lg text-gray-500 text-sm py-12 text-center">
-  No posts yet — hit <a href="/sources" class="accent font-semibold">Refresh now</a>.
+<div class="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8" x-data="{ playing: null }">
+
+  <!-- Main column -->
+  <div>
+    {% if posts_groups %}
+    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+      {% for g in posts_groups %}{% with hide_source = True, permalink = True %}{% include "_card.html" %}{% endwith %}{% endfor %}
+    </section>
+    {% else %}
+    <div class="bg-white border border-gray-200 rounded-lg text-gray-500 text-sm py-12 text-center">
+      No posts yet — hit <a href="/sources" class="accent font-semibold">Refresh now</a>.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="space-y-6">
+    {% if visionary_videos %}
+    <!-- Visionary Talks: curated all-time-best AI talks, opened in an in-portal player -->
+    <div class="bg-white border border-gray-200 rounded-lg p-5">
+      <h3 class="text-lg font-extrabold border-b-2 border-gray-900 pb-2 mb-3">My All Time Fav</h3>
+      <ul class="space-y-2">
+        {% for v in visionary_videos %}
+        <li>
+          <button type="button"
+                  @click='playing = { id: "{{ v.video_id }}", title: {{ v.title|tojson }} }'
+                  class="w-full text-left flex gap-3 group rounded-md p-2 transition hover:brightness-95"
+                  style="background:{{ v.bg }};">
+            <span class="media w-24 shrink-0 rounded relative">
+              <img src="https://i.ytimg.com/vi/{{ v.video_id }}/hqdefault.jpg" alt="{{ v.title }}" loading="lazy">
+              <span class="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/35 transition">
+                <svg class="w-6 h-6 text-white drop-shadow" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              </span>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-[11px] uppercase tracking-wide font-semibold" style="color:{{ v.label }};">{{ v.person }}</span>
+              <span class="block text-sm font-semibold leading-snug line-clamp-2 group-hover:underline" style="color:{{ v.title_color }};">{{ v.title }}</span>
+              <span class="block text-xs mt-0.5" style="color:{{ v.label }}; opacity:.65;">{{ v.channel }}</span>
+            </span>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </aside>
+
+  <!-- In-portal video player modal -->
+  <div x-show="playing" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background:rgba(0,0,0,.75)"
+       @click.self="playing = null" @keydown.escape.window="playing = null">
+    <div class="w-full max-w-3xl">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-white text-sm font-semibold truncate pr-4" x-text="playing && playing.title"></span>
+        <button type="button" @click="playing = null" class="text-white/80 hover:text-white text-2xl leading-none px-2">&times;</button>
+      </div>
+      <div class="bg-black rounded-lg overflow-hidden" style="aspect-ratio:16/9">
+        <template x-if="playing">
+          <iframe class="w-full h-full" :src="'https://www.youtube.com/embed/' + playing.id + '?autoplay=1'"
+                  title="Video player" frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen></iframe>
+        </template>
+      </div>
+    </div>
+  </div>
 </div>
-{% endif %}
 {% endblock %}

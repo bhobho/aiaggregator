@@ -30,6 +30,7 @@
   <meta name="twitter:image" content="{{ _ogi }}">
   {% if _canon %}<link rel="canonical" href="{{ _canon }}">{% endif %}
   {% if _robots %}<meta name="robots" content="{{ _robots }}">{% endif %}
+  <link rel="alternate" type="application/rss+xml" title="AI Aggregator — Top AI Stories" href="/feed.xml">
   {% block head_extra %}{% endblock %}
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
@@ -197,6 +198,16 @@
         }
       } catch (e) {}
       return true;
+    }
+
+    // "Copy link" share button: copies the URL and briefly swaps the button label.
+    function copyLink(btn, url) {
+      navigator.clipboard.writeText(url).then(function () {
+        var original = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      }).catch(function () {});
+      return false;
     }
   </script>
 
