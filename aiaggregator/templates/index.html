@@ -46,7 +46,7 @@
             <span class="accent">Neeraj Pandey</span>
             <span class="text-gray-400 font-normal normal-case ml-auto">{{ a.published_at | timeago or (a.fetched_at | timeago) }}</span>
           </div>
-          <a href="{{ a.url }}" target="_blank" rel="noopener"
+          <a href="/post/{{ a.id }}"
              class="text-sm font-semibold text-gray-900 hover:accent leading-snug line-clamp-2">{{ a.title }}</a>
         </li>
         {% endfor %}
@@ -59,23 +59,9 @@
       <h3 class="text-lg font-extrabold border-b-2 border-gray-900 pb-2 mb-3">{{ headlines_title | default('Top Headlines') }}</h3>
       <ol class="space-y-4">
         {% for a in top_headlines %}
-        {% set hsrc = srcmap.get(a.source_id, ('Source','news')) %}
-        {% set hpayload = {
-          'id': a.id,
-          'title': a.title,
-          'url': a.url,
-          'label': (a.companies[0] if a.companies else hsrc[0]),
-          'source': hsrc[0],
-          'time': (a.published_at | timeago) or (a.fetched_at | timeago),
-          'summary': a.summary or a.raw_summary[:400],
-          'tags': a.tags,
-          'importance': a.importance or 0,
-          'extras': [],
-        } %}
         <li class="flex gap-3">
           <span class="text-2xl font-extrabold text-gray-300 leading-none w-7 shrink-0">{{ loop.index }}</span>
-          <a href="{{ a.url }}" target="_blank" rel="noopener"
-             onclick='return openArticle({{ hpayload | tojson }})'
+          <a href="/post/{{ a.id }}"
              class="text-sm font-semibold text-gray-900 hover:accent leading-snug line-clamp-3">{{ a.title }}</a>
         </li>
         {% endfor %}
@@ -91,25 +77,12 @@
       <ul class="space-y-3.5">
         {% for a in voices %}
         {% set vsrc = srcmap.get(a.source_id, ('Source','news')) %}
-        {% set vpayload = {
-          'id': a.id,
-          'title': a.title,
-          'url': a.url,
-          'label': vsrc[0],
-          'source': vsrc[0],
-          'time': (a.published_at | timeago) or (a.fetched_at | timeago),
-          'summary': a.summary or a.raw_summary[:400],
-          'tags': a.tags,
-          'importance': a.importance or 0,
-          'extras': [],
-        } %}
         <li>
           <div class="flex items-baseline gap-2 text-[11px] uppercase tracking-wide font-semibold">
             <span class="accent">{{ vsrc[0] }}</span>
             <span class="text-gray-400 font-normal normal-case ml-auto">{{ a.published_at | timeago or (a.fetched_at | timeago) }}</span>
           </div>
-          <a href="{{ a.url }}" target="_blank" rel="noopener"
-             onclick='return openArticle({{ vpayload | tojson }})'
+          <a href="/post/{{ a.id }}"
              class="text-sm font-semibold text-gray-900 hover:accent leading-snug line-clamp-2">{{ a.title }}</a>
         </li>
         {% endfor %}

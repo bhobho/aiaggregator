@@ -13,7 +13,8 @@
   {% set _ogd = og_desc|default("AI & Agentic-AI news, aggregated from public RSS feeds and summarized locally — labs, research, and major tech outlets, ranked and clustered.", true) %}
   {% set _ogi = og_image|default(base ~ '/static/og-card.png', true) %}
   {% set _ogtype = og_type|default('website', true) %}
-  {% set _canon = canonical|default('', true) %}
+  {% set _canon = canonical|default(base ~ request.url.path, true) %}
+  {% set _robots = robots_meta|default('', true) %}
   <meta name="description" content="{{ _ogd }}">
   <meta property="og:type" content="{{ _ogtype }}">
   <meta property="og:site_name" content="AI Aggregator">
@@ -28,6 +29,8 @@
   <meta name="twitter:description" content="{{ _ogd }}">
   <meta name="twitter:image" content="{{ _ogi }}">
   {% if _canon %}<link rel="canonical" href="{{ _canon }}">{% endif %}
+  {% if _robots %}<meta name="robots" content="{{ _robots }}">{% endif %}
+  {% block head_extra %}{% endblock %}
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -158,76 +161,44 @@
     AI Aggregator — aggregated from public RSS feeds, enriched locally with Ollama. No paid APIs.
   </footer>
 
-  <!-- In-page article reader: cards dispatch 'open-article' with the story payload -->
+  <!-- Analytics beacons: time-on-page + outbound-click tracking (see /beacon/*).
+       Both are fire-and-forget and never block navigation. -->
   <script>
-    function openArticle(p){ window.dispatchEvent(new CustomEvent('open-article', {detail: p})); return false; }
+    (function () {
+      var start = Date.now();
+      var sent = false;
+      function sendDwell() {
+        if (sent) return;
+        var ms = Date.now() - start;
+        if (ms < 250) return;  // ignore accidental/instant navigations
+        sent = true;
+        var body = JSON.stringify({ path: location.pathname, ms: ms });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/beacon/dwell', new Blob([body], { type: 'application/json' }));
+        } else {
+          fetch('/beacon/dwell', { method: 'POST', body: body, keepalive: true }).catch(function () {});
+        }
+      }
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') sendDwell();
+      });
+      window.addEventListener('pagehide', sendDwell);
+    })();
+
+    // Called on outbound "Read full story" / "View original" links (they open in
+    // a new tab via target="_blank", so this never delays or blocks the click).
+    function trackOutbound(url) {
+      try {
+        var body = JSON.stringify({ path: location.pathname, url: url });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/beacon/outbound', new Blob([body], { type: 'application/json' }));
+        } else {
+          fetch('/beacon/outbound', { method: 'POST', body: body, keepalive: true }).catch(function () {});
+        }
+      } catch (e) {}
+      return true;
+    }
   </script>
-  <div x-data="{ show:false, a:{}, detail:'', loading:false,
-                 open(p){ this.a = p; this.show = true; this.detail = ''; this.loading = !!p.id;
-                   if (p.id) fetch('/article/' + p.id + '/summary')
-                     .then(r => r.json())
-                     .then(d => { if (d.id === this.a.id) { this.detail = d.summary; this.loading = false } })
-                     .catch(() => { this.loading = false }) } }"
-       @open-article.window="open($event.detail)"
-       @keydown.escape.window="show = false"
-       x-show="show" x-cloak
-       class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
-    <div class="absolute inset-0 bg-black/50" @click="show = false"></div>
-    <div class="relative bg-white w-full sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-xl shadow-2xl p-6"
-         x-transition.opacity>
-      <button type="button" @click="show = false" aria-label="Close"
-              class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-xl leading-none">&times;</button>
 
-      <div class="flex items-center gap-2 text-[11px] uppercase tracking-wide font-semibold pr-8">
-        <span class="accent" x-text="a.label"></span>
-        <template x-if="(a.importance||0) >= 70">
-          <span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>
-        </template>
-        <span class="text-gray-400 font-normal normal-case" x-text="a.time"></span>
-      </div>
-
-      <template x-if="a.image_url">
-        <img :src="a.image_url" alt="" class="mt-3 w-full aspect-video object-cover rounded-lg"
-             @error="$el.style.display='none'">
-      </template>
-
-      <h2 class="mt-2 text-xl sm:text-2xl font-extrabold leading-snug" x-text="a.title"></h2>
-      <p class="mt-3 text-sm sm:text-base text-gray-700 leading-relaxed" x-text="detail || a.summary"></p>
-      <div x-show="loading" class="mt-2 flex items-center gap-2 text-xs text-gray-400 italic">
-        <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-        </svg>
-        Expanding summary…
-      </div>
-
-      <div class="mt-3 flex flex-wrap gap-1.5" x-show="(a.tags||[]).length">
-        <template x-for="t in (a.tags||[])">
-          <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600" x-text="t"></span>
-        </template>
-      </div>
-
-      <template x-if="(a.extras||[]).length">
-        <div class="mt-4 border-t border-gray-100 pt-3">
-          <div class="text-xs font-semibold text-gray-500 mb-2"
-               x-text="'Also reported by ' + a.extras.length + ' other source' + (a.extras.length > 1 ? 's' : '')"></div>
-          <ul class="space-y-1.5">
-            <template x-for="e in a.extras">
-              <li class="text-sm">
-                <a :href="e.url" target="_blank" rel="noopener" class="text-gray-700 hover:accent" x-text="e.title"></a>
-                <span class="text-gray-400 text-xs" x-text="'· ' + e.source"></span>
-              </li>
-            </template>
-          </ul>
-        </div>
-      </template>
-
-      <div class="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
-        <a :href="a.url" target="_blank" rel="noopener" @click="show = false"
-           class="bg-accent text-white text-sm font-semibold px-4 py-2 rounded hover:opacity-90">Read full story ↗</a>
-        <span class="text-xs text-gray-400" x-text="a.source"></span>
-      </div>
-    </div>
-  </div>
 </body>
 </html>

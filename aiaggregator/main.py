@@ -5,9 +5,12 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import json
+from urllib.parse import urlparse
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -15,7 +18,7 @@ from . import analytics, db
 from .config import settings
 from .enrich import cluster, summarize
 from .ingest import pipeline
-from .routes import admin, dashboard
+from .routes import admin, dashboard, seo
 from .timefmt import timeago
 
 logging.basicConfig(level=logging.ERROR,
@@ -80,6 +83,7 @@ app.state.jobs = {"fetch": _job_fetch, "enrich": _job_enrich}
 
 app.include_router(dashboard.router)
 app.include_router(admin.router)
+app.include_router(seo.router)
 
 
 # ----- visitor analytics (hidden) -------------------------------------------
@@ -91,6 +95,11 @@ def _client_ip(request) -> str | None:
     return request.client.host if request.client else None
 
 
+def _is_excluded(ip: str | None) -> bool:
+    """True for the site owner's own IP(s) — see AIAGG_ANALYTICS_EXCLUDE_IPS."""
+    return bool(ip) and ip in settings.analytics_exclude_ip_set
+
+
 @app.middleware("http")
 async def _track_visits(request, call_next):
     response = await call_next(request)
@@ -98,8 +107,10 @@ async def _track_visits(request, call_next):
         path = request.url.path
         skip = (request.method != "GET"
                 or path.startswith("/static")
+                or path.startswith("/beacon")
                 or path in ("/feed", "/favicon.ico")
-                or path == settings.analytics_path)
+                or path == settings.analytics_path
+                or _is_excluded(_client_ip(request)))
         if not skip:
             conn = db.connect()
             try:
@@ -118,6 +129,55 @@ async def _track_visits(request, call_next):
     return response
 
 
+async def _read_beacon_json(request: Request) -> dict:
+    """navigator.sendBeacon posts a Blob (often text/plain), so parse raw bytes
+    rather than relying on FastAPI's content-type-based JSON parsing."""
+    try:
+        return json.loads((await request.body()) or b"{}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+
+
+@app.post("/beacon/dwell", include_in_schema=False)
+async def beacon_dwell(request: Request) -> Response:
+    """Time-on-page: the client reports elapsed ms when the tab hides/closes."""
+    ip = _client_ip(request)
+    if _is_excluded(ip):
+        return Response(status_code=204)
+    data = await _read_beacon_json(request)
+    path = str(data.get("path") or "")[:200]
+    try:
+        ms = int(data.get("ms") or 0)
+    except (TypeError, ValueError):
+        ms = 0
+    if path.startswith("/") and 250 <= ms <= 3 * 60 * 60 * 1000:  # sane bounds
+        conn = db.connect()
+        try:
+            db.record_engagement(conn, ip=ip, path=path, duration_ms=ms)
+        finally:
+            conn.close()
+    return Response(status_code=204)
+
+
+@app.post("/beacon/outbound", include_in_schema=False)
+async def beacon_outbound(request: Request) -> Response:
+    """Logged when a visitor clicks through to a story's original source."""
+    ip = _client_ip(request)
+    if _is_excluded(ip):
+        return Response(status_code=204)
+    data = await _read_beacon_json(request)
+    path = str(data.get("path") or "")[:200]
+    url = str(data.get("url") or "")
+    domain = urlparse(url).netloc.removeprefix("www.").lower()
+    if domain and path.startswith("/"):
+        conn = db.connect()
+        try:
+            db.record_outbound_click(conn, ip=ip, path=path, domain=domain, dest_url=url[:500])
+        finally:
+            conn.close()
+    return Response(status_code=204)
+
+
 async def _analytics_view(request: Request):
     # Token gate: if configured, a wrong/missing key returns 404 (hides existence).
     if settings.analytics_token and request.query_params.get("key") != settings.analytics_token:
@@ -128,7 +188,11 @@ async def _analytics_view(request: Request):
         data = analytics.summary(conn, days=30)
     finally:
         conn.close()
-    return templates.TemplateResponse(request, "analytics.html", {"a": data})
+    my_ip = _client_ip(request)
+    return templates.TemplateResponse(
+        request, "analytics.html",
+        {"a": data, "my_ip": my_ip, "my_ip_excluded": _is_excluded(my_ip),
+         "robots_meta": "noindex, nofollow"})
 
 
 app.add_api_route(settings.analytics_path, _analytics_view,

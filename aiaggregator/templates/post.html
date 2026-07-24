@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ article.title }} · AI Aggregator{% endblock %}
+{# Structured data only for our own posts — we don't claim authorship of
+   syndicated third-party articles (those are noindex anyway). #}
+{% block head_extra %}{% if jsonld %}
+  <script type="application/ld+json">{{ jsonld | safe }}</script>
+{% endif %}{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
   <a href="/" class="text-xs font-semibold accent">← My Page</a>
@@ -11,17 +16,23 @@
 
   <h1 class="mt-2 text-3xl sm:text-4xl font-extrabold leading-tight">{{ article.title }}</h1>
 
-  {% if article.image_url %}
-  <img src="{{ article.image_url }}" alt="" class="mt-6 w-full aspect-video object-cover rounded-lg"
+  {% if show_hero %}
+  <img src="{{ article.image_url }}" alt="{{ article.title }}" class="mt-6 w-full aspect-video object-cover rounded-lg"
        onerror="this.style.display='none'">
   {% endif %}
 
   {% if full_html %}
     <div class="article-body mt-7">{{ full_html | safe }}</div>
+    {% if not is_own %}
+    <p class="mt-6 text-xs text-gray-500">
+      Syndicated from <a href="{{ article.url }}" target="_blank" rel="noopener"
+         onclick='trackOutbound({{ article.url | tojson }})' class="accent font-semibold">{{ srcname }} ↗</a>
+    </p>
+    {% endif %}
   {% else %}
     <p class="mt-6 text-lg text-gray-700 leading-relaxed">{{ summary }}</p>
     <div class="mt-6">
-      <a href="{{ article.url }}" target="_blank" rel="noopener"
+      <a href="{{ article.url }}" target="_blank" rel="noopener" onclick='trackOutbound({{ article.url | tojson }})'
          class="inline-block bg-accent text-white text-sm font-semibold px-4 py-2 rounded">Read full story ↗</a>
     </div>
   {% endif %}
@@ -40,9 +51,8 @@
        class="inline-flex items-center gap-2 bg-accent text-white text-sm font-semibold px-4 py-2 rounded hover:opacity-90">
       Share on LinkedIn
     </a>
-    {% if is_own %}
-    <a href="{{ article.url }}" target="_blank" rel="noopener" class="text-sm font-semibold accent">View original ↗</a>
-    {% endif %}
+    <a href="{{ article.url }}" target="_blank" rel="noopener" onclick='trackOutbound({{ article.url | tojson }})'
+       class="text-sm font-semibold accent">View original ↗</a>
   </div>
 </div>
 {% endblock %}

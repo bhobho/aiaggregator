@@ -1,6 +1,8 @@
 """Dashboard routes: feed and filtered/searched partials."""
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
@@ -37,7 +39,7 @@ def _filters(company, category, days, min_importance, sort) -> queries.FeedFilte
 
 def _feed_context(request: Request, f: queries.FeedFilters, *,
                   heading: str | None = None, sub: str | None = None,
-                  chips: list | None = None) -> dict:
+                  chips: list | None = None, desc: str | None = None) -> dict:
     conn = db.connect()
     try:
         articles = queries.dedupe_stories(queries.feed(conn, f))
@@ -54,6 +56,7 @@ def _feed_context(request: Request, f: queries.FeedFilters, *,
             "heading": heading,
             "sub": sub,
             "chips": chips,
+            "og_desc": desc,   # unique meta description per section
         }
     finally:
         conn.close()
@@ -68,6 +71,8 @@ async def index(request: Request):
         ctx = {
             "request": request,
             "posts_groups": queries.group_clusters(queries.my_posts_feed(conn, limit=60)),
+            "og_desc": "Articles and posts by Neeraj Pandey on AI, agents and "
+                       "architecture — practitioner notes on building AI systems.",
             "srcmap": queries.source_name_map(conn),
             "stats": queries.stats(conn),
         }
@@ -89,6 +94,8 @@ async def tech_view(request: Request):
         request, f,
         heading="Tech News",
         sub="the latest technology news across major outlets, de-duplicated",
+        desc="The latest technology news across major outlets, de-duplicated and "
+             "summarized — models, tools, research and industry moves.",
     )
     templates = request.app.state.templates
     return templates.TemplateResponse(request, "index.html", ctx)
@@ -163,6 +170,8 @@ async def blogs_view(request: Request):
             "heading": "Blogs",
             "sub": "essays & analysis from trusted industry voices, newest first",
             "chips": None,
+            "og_desc": "Essays and analysis on AI from trusted industry voices — "
+                       "engineering blogs, research write-ups and practitioner deep dives.",
         }
     finally:
         conn.close()
@@ -189,6 +198,8 @@ async def industry_view(request: Request):
             "heading": "Industry View",
             "sub": "AI insights & white papers from consulting firms, analysts & research institutions",
             "chips": None,
+            "og_desc": "AI insights and white papers from consulting firms, analysts "
+                       "and research institutions — adoption, strategy and market outlook.",
         }
     finally:
         conn.close()
@@ -215,6 +226,8 @@ async def architecture_view(request: Request):
             "heading": "Architecture",
             "sub": "reference architectures & engineering deep-dives from trusted sources, newest first",
             "chips": None,
+            "og_desc": "Reference architectures and engineering deep dives for building "
+                       "AI systems — RAG, agents, inference and platform design.",
         }
     finally:
         conn.close()
@@ -241,6 +254,8 @@ async def podcasts_view(request: Request):
             "heading": "Podcasts",
             "sub": "latest episodes from leading AI shows, newest first",
             "chips": None,
+            "og_desc": "Latest episodes from leading AI podcasts — interviews, research "
+                       "discussions and founder conversations, newest first.",
         }
     finally:
         conn.close()
@@ -293,12 +308,40 @@ async def post_view(request: Request, article_id: int):
         srcname = srcmap.get(article.source_id, ("Source", "news"))[0]
         is_own = srcname in queries.MY_SOURCES
 
-        full_html = sanitize.clean(article.content) if (is_own and article.content) else ""
+        # Render whatever the publisher syndicated in their own feed
+        # (content:encoded), sanitized. Feeds that only carry a summary fall back
+        # to the short version plus a link to the original.
+        full_html = sanitize.clean(article.content) if article.content else ""
         summary = article.summary or (article.raw_summary or "")[:600]
+        # Many feeds repeat the cover image as the first image of the body — only
+        # show the standalone hero when the body doesn't already contain it.
+        show_hero = bool(article.image_url) and article.image_url not in full_html
 
         base = settings.public_url.rstrip("/") if settings.public_url \
             else str(request.base_url).rstrip("/")
         post_url = f"{base}/post/{article.id}"
+
+        # Only our own writing goes into the search index; syndicated third-party
+        # articles are crawlable (links followed) but not indexed, so the site
+        # isn't judged as republished/duplicate content.
+        robots_meta = "" if is_own else "noindex, follow"
+        jsonld = json.dumps({
+            "@context": "https://schema.org",
+            "@type": "BlogPosting",
+            "headline": article.title[:110],
+            "description": (summary or article.title)[:200],
+            "image": [article.image_url] if article.image_url else [],
+            "datePublished": article.published_at or article.fetched_at,
+            "dateModified": article.published_at or article.fetched_at,
+            "author": {"@type": "Person", "name": "Neeraj Pandey"},
+            "publisher": {
+                "@type": "Organization",
+                "name": "AI Aggregator",
+                "logo": {"@type": "ImageObject", "url": f"{base}/static/og-card.png"},
+            },
+            "mainEntityOfPage": {"@type": "WebPage", "@id": post_url},
+            "url": post_url,
+        }, ensure_ascii=False) if is_own else ""
         ctx = {
             "request": request,
             "article": article,
@@ -306,6 +349,7 @@ async def post_view(request: Request, article_id: int):
             "is_own": is_own,
             "full_html": full_html,
             "summary": summary,
+            "show_hero": show_hero,
             "base": base,
             "post_url": post_url,
             # per-article link-preview metadata (see base.html)
@@ -314,6 +358,8 @@ async def post_view(request: Request, article_id: int):
             "og_image": article.image_url or "",
             "og_type": "article",
             "canonical": post_url,
+            "robots_meta": robots_meta,
+            "jsonld": jsonld,
         }
     finally:
         conn.close()
@@ -326,7 +372,13 @@ async def market_view(request: Request):
     # AI News: same layout as Home / Tech News, restricted to the market feeds
     # (the business side of AI — no research/launch coverage).
     f = queries.FeedFilters(category="market", sort="importance")
-    ctx = _feed_context(request, f)
+    ctx = _feed_context(
+        request, f,
+        heading="AI News",
+        sub="the business of AI — funding, launches, policy and market moves",
+        desc="AI news: funding, model launches, policy and market moves across the "
+             "AI industry, ranked and de-duplicated from public sources.",
+    )
     templates = request.app.state.templates
     return templates.TemplateResponse(request, "index.html", ctx)
 

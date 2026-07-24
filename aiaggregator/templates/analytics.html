@@ -2,9 +2,20 @@
 {% block title %}Insights{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-extrabold mb-1">Visitor Insights</h1>
-<p class="text-sm text-gray-500 mb-5">Unique views over time · last {{ a.days }} days window · private/localhost IPs shown as “Local”.</p>
+<p class="text-sm text-gray-500 mb-3">Unique views over time · last {{ a.days }} days window · private/localhost IPs shown as “Local”.</p>
 
-<div class="grid grid-cols-2 sm:grid-cols-2 gap-3 mb-6 max-w-md">
+{% if my_ip %}
+<p class="text-xs text-gray-400 mb-5">
+  The server sees you as <span class="font-mono text-gray-600">{{ my_ip }}</span>.
+  {% if my_ip_excluded %}
+    <span class="text-emerald-600 font-semibold">Excluded from these stats.</span>
+  {% else %}
+    Add it to <span class="font-mono text-gray-600">AIAGG_ANALYTICS_EXCLUDE_IPS</span> to keep your own visits out of these numbers.
+  {% endif %}
+</p>
+{% endif %}
+
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 max-w-2xl">
   <div class="bg-white border border-gray-200 rounded-lg py-4 text-center">
     <div class="text-2xl font-extrabold">{{ a.visitors }}</div>
     <div class="text-xs text-gray-500 uppercase tracking-wide">Unique views</div>
@@ -12,6 +23,10 @@
   <div class="bg-white border border-gray-200 rounded-lg py-4 text-center">
     <div class="text-2xl font-extrabold">{{ a.visits }}</div>
     <div class="text-xs text-gray-500 uppercase tracking-wide">Page views</div>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg py-4 text-center">
+    <div class="text-2xl font-extrabold">{{ a.dwell.avg_label }}</div>
+    <div class="text-xs text-gray-500 uppercase tracking-wide">Avg. time on page</div>
   </div>
 </div>
 
@@ -60,6 +75,48 @@
     <div class="flex gap-2 mt-1.5">
       {% for p in a.monthly %}<div class="flex-1 text-center text-[10px] text-gray-400">{{ p.label }}</div>{% endfor %}
     </div>
+  </div>
+</div>
+
+<!-- Where visitors come from -->
+<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto mb-6">
+  <h3 class="font-bold px-4 py-2 border-b border-gray-200">Where visitors come from</h3>
+  <p class="text-xs text-gray-400 px-4 pt-2">Referring sites and search engines · same-site navigation excluded.</p>
+  <table class="w-full min-w-[280px] text-sm mt-1">
+    <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">Source</th><th>Visits</th><th class="px-4">Unique visitors</th></tr></thead>
+    <tbody>
+      {% for r in a.referrers %}
+      <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.source }}</td><td>{{ r.visits }}</td><td class="px-4">{{ r.visitors }}</td></tr>
+      {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="3">No referrer data yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Time spent + where visitors are routed to -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+    <h3 class="font-bold px-4 py-2 border-b border-gray-200">Time spent by section</h3>
+    <table class="w-full min-w-[280px] text-sm">
+      <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">Section</th><th>Avg. time</th><th class="px-4">Views tracked</th></tr></thead>
+      <tbody>
+        {% for r in a.dwell.by_section %}
+        <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.section }}</td><td>{{ r.avg_label }}</td><td class="px-4">{{ r.n }}</td></tr>
+        {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="3">No dwell-time data yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+    <h3 class="font-bold px-4 py-2 border-b border-gray-200">Where readers are routed to</h3>
+    <p class="text-xs text-gray-400 px-4 pt-2">Clicks on “Read full story” / “View original”, by destination.</p>
+    <table class="w-full min-w-[280px] text-sm mt-1">
+      <thead class="text-left text-gray-500 bg-gray-50"><tr><th class="px-4 py-1.5">Source</th><th>Clicks</th><th class="px-4">Unique visitors</th></tr></thead>
+      <tbody>
+        {% for r in a.outbound %}
+        <tr class="border-t border-gray-100"><td class="px-4 py-1.5">{{ r.domain }}</td><td>{{ r.clicks }}</td><td class="px-4">{{ r.visitors }}</td></tr>
+        {% else %}<tr><td class="px-4 py-3 text-gray-400" colspan="3">No outbound clicks yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 

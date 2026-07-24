@@ -5,37 +5,16 @@
 {% set featured = featured|default(false) %}
 {% set compact = compact|default(false) %}
 {% set hide_source = hide_source|default(false) %}
-{% set permalink = permalink|default(false) %}
+{# Every story opens on its own in-portal page; the source link lives there. #}
 {% set post_url = '/post/' ~ a.id %}
-
-{# payload for the in-page reader modal (see base.html) #}
-{% set extras_payload = [] %}
-{% for e in g.extras %}
-  {% set _ = extras_payload.append({'title': e.title, 'url': e.url,
-                                    'source': srcmap.get(e.source_id, ('Source',''))[0]}) %}
-{% endfor %}
-{% set payload = {
-  'id': a.id,
-  'title': a.title,
-  'url': a.url,
-  'label': '' if hide_source else label,
-  'source': '' if hide_source else src[0],
-  'time': (a.published_at | timeago) or (a.fetched_at | timeago),
-  'summary': a.summary or a.raw_summary[:400],
-  'tags': a.tags,
-  'importance': 0 if hide_source else (a.importance or 0),
-  'image_url': a.image_url,
-  'extras': extras_payload,
-} %}
 
 <article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
          x-data="{ open:false }">
   {# Uniform 16:9 media, shown only when a story actually has an image (most of our
      feeds don't supply one). Broken images remove the block so the card stays clean. #}
   {% if not compact and a.image_url %}
-  <a href="{{ post_url if permalink else a.url }}" class="media"
-     {% if not permalink %}target="_blank" rel="noopener" onclick='return openArticle({{ payload | tojson }})'{% endif %}>
-    <img src="{{ a.image_url }}" alt="" loading="lazy"
+  <a href="{{ post_url }}" class="media">
+    <img src="{{ a.image_url }}" alt="{{ a.title }}" loading="lazy"
          onerror="this.closest('a').remove()">
   </a>
   {% endif %}
@@ -48,8 +27,7 @@
       <span class="text-gray-400 font-normal normal-case ml-auto">{{ (a.published_at | timeago) or (a.fetched_at | timeago) }}</span>
     </div>
 
-    <a href="{{ post_url if permalink else a.url }}"
-       {% if not permalink %}target="_blank" rel="noopener" onclick='return openArticle({{ payload | tojson }})'{% endif %}
+    <a href="{{ post_url }}"
        class="block mt-1.5 font-bold text-gray-900 hover:accent leading-snug cursor-pointer
               {% if featured %}text-2xl{% elif compact %}text-sm line-clamp-3{% else %}text-base line-clamp-2{% endif %}">
       {{ a.title }}
@@ -79,7 +57,7 @@
         <ul x-show="open" x-cloak class="mt-2 space-y-1">
           {% for e in g.extras %}
           {% set esrc = srcmap.get(e.source_id, ('Source','news')) %}
-          <li class="text-xs"><a href="{{ e.url }}" target="_blank" rel="noopener" class="text-gray-700 hover:accent">{{ e.title }}</a>
+          <li class="text-xs"><a href="/post/{{ e.id }}" class="text-gray-700 hover:accent">{{ e.title }}</a>
             <span class="text-gray-400">· {{ esrc[0] }}</span></li>
           {% endfor %}
         </ul>

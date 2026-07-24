@@ -70,6 +70,30 @@ CREATE TABLE IF NOT EXISTS visits (
 CREATE INDEX IF NOT EXISTS idx_visits_ts ON visits(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_visits_ip ON visits(ip);
 
+-- Time-on-page, reported by a client-side beacon (visibilitychange/pagehide).
+CREATE TABLE IF NOT EXISTS engagement (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT NOT NULL,
+    ip          TEXT,
+    path        TEXT,
+    duration_ms INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_engagement_ts ON engagement(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_engagement_path ON engagement(path);
+
+-- Clicks that send a visitor out to the original source (Read full story /
+-- View original), so we can see which publishers we're routing traffic to.
+CREATE TABLE IF NOT EXISTS outbound_clicks (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts       TEXT NOT NULL,
+    ip       TEXT,
+    path     TEXT,
+    domain   TEXT NOT NULL,
+    dest_url TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_outbound_ts ON outbound_clicks(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_outbound_domain ON outbound_clicks(domain);
+
 CREATE TABLE IF NOT EXISTS ip_geo (
     ip          TEXT PRIMARY KEY,
     country     TEXT,
@@ -288,6 +312,27 @@ def record_visit(conn: sqlite3.Connection, *, ip: str | None, path: str,
         """INSERT INTO visits (ts, ip, path, method, referer, user_agent)
            VALUES (?, ?, ?, ?, ?, ?)""",
         (now_iso(), ip, path, method, referer, user_agent),
+    )
+    conn.commit()
+
+
+def record_engagement(conn: sqlite3.Connection, *, ip: str | None, path: str,
+                      duration_ms: int) -> None:
+    """Time-on-page reported by the client beacon on tab-hide/unload."""
+    conn.execute(
+        "INSERT INTO engagement (ts, ip, path, duration_ms) VALUES (?, ?, ?, ?)",
+        (now_iso(), ip, path, duration_ms),
+    )
+    conn.commit()
+
+
+def record_outbound_click(conn: sqlite3.Connection, *, ip: str | None, path: str,
+                          domain: str, dest_url: str) -> None:
+    """A click that sends the visitor out to the original source."""
+    conn.execute(
+        """INSERT INTO outbound_clicks (ts, ip, path, domain, dest_url)
+           VALUES (?, ?, ?, ?, ?)""",
+        (now_iso(), ip, path, domain, dest_url),
     )
     conn.commit()
 

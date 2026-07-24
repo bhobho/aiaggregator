@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     # repo is public.
     analytics_path: str = "/_insights"
     analytics_token: str = ""
+    # Comma-separated IPs to exclude from all visit/engagement tracking and
+    # reporting (e.g. the site owner's own IP, so self-visits don't skew stats).
+    # The insights page shows the IP the server sees you as, to make this easy
+    # to fill in. Example: AIAGG_ANALYTICS_EXCLUDE_IPS=203.0.113.7,198.51.100.4
+    analytics_exclude_ips: str = ""
+
+    @property
+    def analytics_exclude_ip_set(self) -> set[str]:
+        return {ip.strip() for ip in self.analytics_exclude_ips.split(",") if ip.strip()}
 
     # Ingestion
     http_timeout: float = 30.0
