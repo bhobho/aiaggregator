@@ -1,8 +1,9 @@
 """Read queries that power the dashboard (filters, search, grouping)."""
 from __future__ import annotations
 
+import re
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 
 from . import db, market as marketmod, ranking, textnorm, vendors as vendormod
@@ -469,10 +470,52 @@ def _is_paywalled(a: Article) -> bool:
     return bool(outlet) and any(p in outlet for p in PAYWALL_OUTLETS)
 
 
+# Literal job-listing titles that leak into a source's RSS feed alongside its
+# actual articles (e.g. Deloitte's careers site — individual job requisitions —
+# gets indexed by Google News right alongside their AI Institute posts).
+# Matched by shape, not by source, so it works for any feed that leaks the
+# same kind of listing. Genuine news that merely discusses jobs/hiring
+# ("McKinsey explains why AI won't take your job") doesn't match any of these.
+JOB_POSTING_PREFIXES = (
+    "check out this job", "now hiring", "we're hiring", "we are hiring",
+    "job opening", "hiring:", "job vacancy", "open position:", "apply now:",
+)
+# "Software Engineer II -", "Data Engineer III -", "Associate I -" — job-level
+# suffixes are near-unique to requisition titles.
+_JOB_LEVEL_RE = re.compile(r"\b[a-z]+\s+(i|ii|iii|iv|v)\s*-", re.I)
+# Two or more offshore-hub cities listed together ("Hyderabad/Bengaluru/...")
+# only ever appears on multi-location job reqs.
+_JOB_CITY_RE = re.compile(
+    r"(hyderabad|bengaluru|bangalore|mumbai|pune|gurugram|gurgaon|chennai|kolkata|noida)"
+    r"\s*/\s*"
+    r"(hyderabad|bengaluru|bangalore|mumbai|pune|gurugram|gurgaon|chennai|kolkata|noida)",
+    re.I,
+)
+_JOB_PROGRAM_RE = re.compile(
+    r"\b(graduate program|vacationer program|graduates\s*/\s*students|internship program)\b", re.I
+)
+_JOB_REQID_RE = re.compile(r"-\s*\d{5,7}\s*-")  # bare requisition number between dashes
+_JOB_BOARD_RE = re.compile(r"\bjobs\b.*\b(career|opportunit)", re.I)
+
+
+def _is_job_posting(a: Article) -> bool:
+    title = a.title or ""
+    tl = title.lower()
+    return (
+        any(tl.startswith(p) for p in JOB_POSTING_PREFIXES)
+        or bool(_JOB_LEVEL_RE.search(title))
+        or bool(_JOB_CITY_RE.search(title))
+        or bool(_JOB_PROGRAM_RE.search(title))
+        or bool(_JOB_REQID_RE.search(title))
+        or bool(_JOB_BOARD_RE.search(title))
+    )
+
+
 def industry_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
-    # Drop subscription-only outlets; keep free, relevant insights.
+    # Drop subscription-only outlets and literal job listings; keep free,
+    # relevant insights.
     arts = _named_sources_feed(conn, INDUSTRY_SOURCES, limit * 3)
-    arts = [a for a in arts if not _is_paywalled(a)]
+    arts = [a for a in arts if not _is_paywalled(a) and not _is_job_posting(a)]
     return arts[:limit]
 
 
@@ -529,6 +572,15 @@ def top_headlines(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
         fill = [Article.from_row(r) for r in extra if r["id"] not in seen_ids]
         arts = unique_stories(arts + fill, limit)
     return arts
+
+
+def top_headlines_for(conn: sqlite3.Connection, f: FeedFilters, limit: int = 8) -> list[Article]:
+    """Top headlines scoped to a section's own category filter (AI News, Tech
+    News, ...) rather than the global pool — so each section's sidebar shows
+    its own top stories instead of duplicating every other section's."""
+    scoped = replace(f, sort="importance", limit=500, days=None, min_importance=None)
+    ranked = feed(conn, scoped)
+    return unique_stories(dedupe_stories(ranked), limit)
 
 
 def topic_feed(conn: sqlite3.Connection, tag: str, limit: int = 60) -> list[Article]:
