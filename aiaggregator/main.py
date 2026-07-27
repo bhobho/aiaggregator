@@ -19,7 +19,7 @@ from .config import settings
 from .enrich import cluster, summarize
 from .ingest import pipeline
 from .routes import admin, dashboard, seo
-from .timefmt import timeago
+from .timefmt import is_recent, timeago
 
 logging.basicConfig(level=logging.ERROR,
                     format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -28,6 +28,7 @@ log = logging.getLogger("aiaggregator")
 BASE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 templates.env.filters["timeago"] = timeago
+templates.env.filters["is_recent"] = is_recent
 templates.env.globals["public_url"] = settings.public_url.rstrip("/")
 
 

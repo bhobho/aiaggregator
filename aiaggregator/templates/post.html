@@ -37,14 +37,6 @@
     </div>
   {% endif %}
 
-  {% if article.tags %}
-  <div class="mt-7 flex flex-wrap gap-1.5">
-    {% for t in article.tags %}
-    <a href="/topic/{{ t }}" class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 hover:accent">{{ t }}</a>
-    {% endfor %}
-  </div>
-  {% endif %}
-
   <div class="mt-8 pt-5 border-t border-gray-200 flex flex-wrap items-center gap-x-3 gap-y-2">
     <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ post_url | urlencode }}"
        target="_blank" rel="noopener"

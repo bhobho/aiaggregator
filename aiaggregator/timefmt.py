@@ -1,7 +1,21 @@
 """Relative time formatting for templates."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+
+def is_recent(iso: str | None, hours: int = 48) -> bool:
+    """True if the ISO timestamp is within the last `hours` — powers the "New"
+    badge on cards (see _card.html's show_new flag)."""
+    if not iso:
+        return False
+    try:
+        dt = datetime.fromisoformat(iso)
+    except ValueError:
+        return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - dt <= timedelta(hours=hours)
 
 
 def timeago(iso: str | None) -> str:

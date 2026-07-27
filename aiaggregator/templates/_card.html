@@ -5,6 +5,8 @@
 {% set featured = featured|default(false) %}
 {% set compact = compact|default(false) %}
 {% set hide_source = hide_source|default(false) %}
+{% set show_new = show_new|default(false) %}
+{% set show_tags = show_tags|default(true) %}
 {# Every story opens on its own in-portal page; the source link lives there. #}
 {% set post_url = '/post/' ~ a.id %}
 
@@ -24,6 +26,7 @@
       {% if not hide_source %}<span class="accent">{{ label }}</span>{% endif %}
       {% set imp = a.importance or 0 %}
       {% if imp >= 70 and not hide_source %}<span class="bg-accent text-white px-1.5 py-0.5 rounded-sm normal-case">Major</span>{% endif %}
+      {% if show_new and ((a.published_at or a.fetched_at) | is_recent) %}<span class="bg-emerald-600 text-white px-1.5 py-0.5 rounded-sm normal-case">New</span>{% endif %}
       <span class="text-gray-400 font-normal normal-case ml-auto">{{ (a.published_at | timeago) or (a.fetched_at | timeago) }}</span>
     </div>
 
@@ -40,7 +43,7 @@
         <p class="mt-2 text-sm text-gray-400 italic line-clamp-2">{{ a.raw_summary[:160] }} · summarizing…</p>
       {% endif %}
 
-      {% if a.tags %}
+      {% if show_tags and a.tags %}
       <div class="mt-3 flex flex-wrap items-center gap-1.5">
         {% for t in a.tags %}
         <a href="/topic/{{ t }}" class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 hover:accent">{{ t }}</a>
