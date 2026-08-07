@@ -14,15 +14,34 @@
     <span class="text-gray-400 font-normal normal-case">{{ (article.published_at | timeago) or (article.fetched_at | timeago) }}</span>
   </div>
 
-  <h1 class="mt-2 text-3xl sm:text-4xl font-extrabold leading-tight">{{ article.title }}</h1>
+  <h1 class="mt-2 text-2xl sm:text-3xl font-extrabold leading-tight">{{ article.title }}</h1>
 
   {% if show_hero %}
-  <img src="{{ article.image_url }}" alt="{{ article.title }}" class="mt-6 w-full aspect-video object-cover rounded-lg"
+  {# Shorter, capped-height banner (not a full 16:9 block) so the hero doesn't
+     push the actual story below the fold. #}
+  <img src="{{ article.image_url }}" alt="{{ article.title }}"
+       class="mt-4 w-full aspect-[21/9] max-h-72 object-cover rounded-lg"
        onerror="this.style.display='none'">
   {% endif %}
 
-  {% if full_html %}
-    <div class="article-body mt-7">{{ full_html | safe }}</div>
+  {% if is_video and video_id %}
+    {# Plays inline instead of linking out — a video doesn't need a "Read full
+       story" click-through, the content IS the click. #}
+    <div class="mt-4 w-full aspect-video rounded-lg overflow-hidden bg-black">
+      <iframe class="w-full h-full" src="https://www.youtube.com/embed/{{ video_id }}"
+              title="{{ article.title }}" frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen></iframe>
+    </div>
+    {% if summary %}
+    <p class="mt-4 text-base text-gray-700 leading-relaxed">{{ summary }}</p>
+    {% endif %}
+    <div class="mt-4">
+      <a href="{{ article.url }}" target="_blank" rel="noopener" onclick='trackOutbound({{ article.url | tojson }})'
+         class="text-sm font-semibold accent">Watch on YouTube ↗</a>
+    </div>
+  {% elif full_html %}
+    <div class="article-body mt-5">{{ full_html | safe }}</div>
     {% if not is_own %}
     <p class="mt-6 text-xs text-gray-500">
       Syndicated from <a href="{{ article.url }}" target="_blank" rel="noopener"
@@ -30,14 +49,14 @@
     </p>
     {% endif %}
   {% else %}
-    <p class="mt-6 text-lg text-gray-700 leading-relaxed">{{ summary }}</p>
-    <div class="mt-6">
+    <p class="mt-4 text-lg text-gray-700 leading-relaxed">{{ summary }}</p>
+    <div class="mt-4">
       <a href="{{ article.url }}" target="_blank" rel="noopener" onclick='trackOutbound({{ article.url | tojson }})'
          class="inline-block bg-accent text-white text-sm font-semibold px-4 py-2 rounded">Read full story ↗</a>
     </div>
   {% endif %}
 
-  <div class="mt-8 pt-5 border-t border-gray-200 flex flex-wrap items-center gap-x-3 gap-y-2">
+  <div class="mt-6 pt-5 border-t border-gray-200 flex flex-wrap items-center gap-x-3 gap-y-2">
     <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ post_url | urlencode }}"
        target="_blank" rel="noopener"
        class="inline-flex items-center gap-2 bg-accent text-white text-sm font-semibold px-4 py-2 rounded hover:opacity-90">

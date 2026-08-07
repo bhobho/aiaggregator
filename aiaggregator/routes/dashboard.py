@@ -1,6 +1,7 @@
 """Dashboard routes: feed and filtered/searched partials."""
 from __future__ import annotations
 
+import asyncio
 import json
 
 from fastapi import APIRouter, Request
@@ -266,6 +267,35 @@ async def podcasts_view(request: Request):
     return templates.TemplateResponse(request, "index.html", ctx)
 
 
+@router.get("/videos", response_class=HTMLResponse)
+async def videos_view(request: Request):
+    # Videos: latest uploads from trusted AI YouTube channels (daily-news shows,
+    # deep-dive research breakdowns, official lab channels), newest first.
+    conn = db.connect()
+    try:
+        articles = queries.videos_feed(conn)
+        ctx = {
+            "request": request,
+            "groups": queries.group_clusters(articles),
+            "srcmap": queries.source_name_map(conn),
+            "stats": queries.stats(conn),
+            "top_headlines": queries.top_videos(conn, limit=8),
+            "headlines_title": "Top Videos",
+            "voices": None,
+            "filters": None,
+            "heading": "AI Videos",
+            "sub": "latest videos from trusted AI YouTube channels — daily briefs, "
+                   "deep-dive analysis & official lab updates",
+            "chips": None,
+            "og_desc": "Latest AI videos from trusted YouTube channels — daily news "
+                       "briefs, deep-dive analysis and official lab updates.",
+        }
+    finally:
+        conn.close()
+    templates = request.app.state.templates
+    return templates.TemplateResponse(request, "index.html", ctx)
+
+
 @router.get("/topic/{tag}", response_class=HTMLResponse)
 async def topic_view(request: Request, tag: str):
     # Evergreen topic pages (/topic/agents, /topic/llms, ...) — one per tag in
@@ -367,17 +397,40 @@ async def post_view(request: Request, article_id: int):
             return PlainTextResponse("Not found", status_code=404)
         article = Article.from_row(row)
         srcmap = queries.source_name_map(conn)
-        srcname = srcmap.get(article.source_id, ("Source", "news"))[0]
+        srcname, category = srcmap.get(article.source_id, ("Source", "news"))
         is_own = srcname in queries.MY_SOURCES
+        is_video = category == "video"
+        video_id = videosmod.extract_youtube_id(article.url) if is_video else None
 
         # Render whatever the publisher syndicated in their own feed
         # (content:encoded), sanitized. Feeds that only carry a summary fall back
         # to the short version plus a link to the original.
         full_html = sanitize.clean(article.content) if article.content else ""
-        summary = article.summary or (article.raw_summary or "")[:600]
+        # Prefer the long (100+ word) reader summary (see
+        # enrich/summarize.detail_summary) so there's enough text to read before
+        # the "Read full story" link. The background backfill fills this in for
+        # most articles ahead of time, but on a cache miss (article not reached
+        # yet) generate it here on the spot, bounded so a slow/unavailable local
+        # LLM can't hang the page — falls back to the short summary if it does.
+        # Videos play inline instead, so they don't need this at all.
+        detail = row["detail_summary"]
+        if not full_html and not is_video and not detail:
+            try:
+                detail = await asyncio.wait_for(
+                    summarize_mod.detail_summary(
+                        article.title, article.summary, article.raw_summary or ""),
+                    timeout=20.0,
+                )
+            except asyncio.TimeoutError:
+                detail = None
+            if detail:
+                db.save_detail_summary(conn, article.id, detail)
+        summary = detail or article.summary or (article.raw_summary or "")[:600]
         # Many feeds repeat the cover image as the first image of the body — only
-        # show the standalone hero when the body doesn't already contain it.
-        show_hero = bool(article.image_url) and article.image_url not in full_html
+        # show the standalone hero when the body doesn't already contain it, and
+        # never alongside the video player.
+        show_hero = (bool(article.image_url) and article.image_url not in full_html
+                    and not is_video)
 
         base = settings.public_url.rstrip("/") if settings.public_url \
             else str(request.base_url).rstrip("/")
@@ -412,6 +465,8 @@ async def post_view(request: Request, article_id: int):
             "full_html": full_html,
             "summary": summary,
             "show_hero": show_hero,
+            "is_video": is_video,
+            "video_id": video_id,
             "base": base,
             "post_url": post_url,
             # per-article link-preview metadata (see base.html)

@@ -44,6 +44,8 @@ async def refresh(request: Request):
     jobs = request.app.state.jobs
     await jobs["fetch"]()                      # ingest + dedup/cluster (visible new items)
     asyncio.create_task(jobs["enrich"]())      # summarize in the background, don't block
+    asyncio.create_task(jobs["images"]())      # backfill missing thumbnails, don't block
+    asyncio.create_task(jobs["details"]())     # backfill long reader summaries, don't block
     conn = db.connect()
     try:
         stats = queries.stats(conn)

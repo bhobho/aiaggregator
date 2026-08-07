@@ -13,11 +13,20 @@
 <article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
          x-data="{ open:false }">
   {# Uniform 16:9 media, shown only when a story actually has an image (most of our
-     feeds don't supply one). Broken images remove the block so the card stays clean. #}
-  {% if not compact and a.image_url %}
-  <a href="{{ post_url }}" class="media">
+     feeds don't supply one). Broken images remove the block so the card stays clean.
+     The "compact" rail (top 2-4 on every tab) is normally text-only, but videos
+     always keep their thumbnail — it's the whole preview, not decoration. #}
+  {% if (not compact or scat == 'video') and a.image_url %}
+  <a href="{{ post_url }}" class="media relative">
     <img src="{{ a.image_url }}" alt="{{ a.title }}" loading="lazy"
          onerror="this.closest('a').remove()">
+    {% if scat == 'video' %}
+    <span class="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <span class="w-11 h-11 rounded-full bg-black/60 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" class="w-5 h-5 text-white ml-0.5" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </span>
+    </span>
+    {% endif %}
   </a>
   {% endif %}
 

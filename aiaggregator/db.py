@@ -248,6 +248,40 @@ def backfill_content(conn: sqlite3.Connection, source_id: int, guid: str,
     conn.commit()
 
 
+def pending_image_backfill(conn: sqlite3.Connection, limit: int) -> list[Article]:
+    """Articles never checked for a lead image, newest first.
+
+    `image_url IS NULL` means "not checked yet" (the feed item had none, and we
+    haven't tried scraping the article page for og:image either). Once checked,
+    `mark_no_image` sets it to '' so a page with no such tag isn't retried
+    forever."""
+    rows = conn.execute(
+        "SELECT * FROM articles WHERE image_url IS NULL ORDER BY fetched_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [Article.from_row(r) for r in rows]
+
+
+def mark_no_image(conn: sqlite3.Connection, article_id: int) -> None:
+    """Record that we looked for a lead image and found none, so this article
+    isn't re-fetched on every backfill pass."""
+    conn.execute("UPDATE articles SET image_url='' WHERE id=?", (article_id,))
+    conn.commit()
+
+
+def pending_detail_backfill(conn: sqlite3.Connection, limit: int) -> list[Article]:
+    """Enriched articles that still don't have a long (100+ word) reader summary
+    — the text shown on the post page before the "Read full story" link. Covers
+    both the historical backlog and freshly-enriched articles."""
+    rows = conn.execute(
+        """SELECT * FROM articles WHERE status='enriched'
+           AND COALESCE(detail_summary,'')=''
+           ORDER BY fetched_at DESC LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    return [Article.from_row(r) for r in rows]
+
+
 def pending_enrichment(conn: sqlite3.Connection, limit: int) -> list[Article]:
     rows = conn.execute(
         "SELECT * FROM articles WHERE status='new' ORDER BY fetched_at DESC LIMIT ?",

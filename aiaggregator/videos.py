@@ -11,6 +11,7 @@ monochrome list — one hue per person, never reused.
 from __future__ import annotations
 
 import random
+import re
 
 VISIONARY_VIDEOS: list[dict] = [
     {
@@ -77,3 +78,16 @@ def shuffled() -> list[dict]:
     videos = VISIONARY_VIDEOS.copy()
     random.shuffle(videos)
     return videos
+
+
+# Matches the 11-char video ID out of any common YouTube URL shape: a channel
+# RSS item's <link> (watch?v=...), a shortened youtu.be link, or an embed URL.
+_YT_ID_RE = re.compile(r"(?:v=|youtu\.be/|/embed/|/shorts/)([A-Za-z0-9_-]{11})")
+
+
+def extract_youtube_id(url: str | None) -> str | None:
+    """The 11-char YouTube video ID from a watch/share/embed URL, or None."""
+    if not url:
+        return None
+    m = _YT_ID_RE.search(url)
+    return m.group(1) if m else None

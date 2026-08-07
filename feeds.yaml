@@ -1,9 +1,11 @@
 # AI / Agentic-AI news sources (RSS/Atom only — no scraping).
-# category: lab | research | news | market | blog | podcast | architecture | industry | community
-#   market -> "AI News"; blog -> "Blogs"; podcast -> "Podcasts";
+# category: lab | research | news | market | blog | podcast | video | architecture | industry | community
+#   market -> "AI News"; blog -> "Blogs"; podcast -> "Podcasts"; video -> "Videos";
 #   architecture -> "Architecture"; industry -> "Industry View"; rest -> "Tech News".
 # filter: true -> keep only AI-relevant items (community_keywords), for broad feeds.
 # Sites without a working RSS feed use a Google News site-query (free, no key).
+# YouTube channels use their own official per-channel RSS feed (no API key needed):
+#   https://www.youtube.com/feeds/videos.xml?channel_id=<CHANNEL_ID>
 # A dead/unreachable feed is skipped gracefully and shown on /health.
 
 sources:
@@ -210,6 +212,29 @@ sources:
     category: podcast
     company: Nvidia
 
+  # ---- Videos: trusted AI YouTube channels ----
+  # Daily/frequent news & analysis, deep-dive research breakdowns, and an
+  # official lab channel, via each channel's own RSS feed (no API key needed).
+  - name: AI Daily Brief (YouTube)
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCKelCK4ZaO6HeEI1KQjqzWA
+    category: video
+  - name: Matthew Berman
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCzi5kcwU8aT4aLR7LcYhfWQ
+    category: video
+  - name: Matt Wolfe
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UChpleBmo18P08aKCIgti38g
+    category: video
+  - name: AI Explained
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCNJ1Ymd5yFuUPtn21xtRbbw
+    category: video
+  - name: Two Minute Papers
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg
+    category: video
+  - name: Google DeepMind (YouTube)
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCP7jMXSY2xbc3KCAE0MHQ-A
+    category: video
+    company: Google DeepMind
+
   # ---- Architecture: reference architectures & engineering deep-dives ----
   # Trustworthy publications that post actual articles (NOT GitHub commit/release
   # feeds, which just route to a repo). GitHub-hosted items are filtered out in
@@ -350,6 +375,13 @@ sources:
   - name: Hacker News Front Page
     url: https://hnrss.org/frontpage
     category: news
+  # NTT DATA's newsroom (nttdata.com/en-us/news) has no RSS feed (client-rendered,
+  # no feed link) — Google News site/name query instead, same approach as the
+  # other RSS-less firms above.
+  - name: NTT DATA News
+    url: https://news.google.com/rss/search?q=%22NTT%20DATA%22%20%22artificial%20intelligence%22%20-careers%20-job%20-jobs%20-hiring&hl=en-US&gl=US&ceid=US:en
+    category: news
+    company: NTT DATA
 
 # Keyword filter applied to broad community feeds (HN, subreddits) so only
 # AI-relevant items are kept. Lab/research/news feeds are already on-topic.

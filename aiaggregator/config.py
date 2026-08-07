@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     fetch_interval: int = 43200  # fetch feeds every 12 hours
     enrich_interval: int = 60    # drain enrichment queue every 60 s
     enrich_batch: int = 8        # articles per enrichment pass
+    image_backfill_interval: int = 45  # drain missing-thumbnail queue every 45 s
+    image_backfill_batch: int = 20     # articles per image-backfill pass
+    # Interval is a floor, not a cadence: passes run sequentially (one Ollama
+    # call at a time) and each pass takes as long as it takes, so a large batch
+    # with a short interval just means the next pass starts the moment the
+    # previous one finishes instead of sitting idle.
+    detail_backfill_interval: int = 15  # drain missing-long-summary queue every 15 s
+    detail_backfill_batch: int = 20     # articles per detail-summary backfill pass (LLM calls)
 
     # Public base URL (e.g. https://news.example.com) used to build absolute
     # Open Graph URLs for link previews. Leave empty to derive from the request.

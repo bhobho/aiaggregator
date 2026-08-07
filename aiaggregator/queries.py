@@ -433,6 +433,28 @@ def top_podcasts(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
     return unique_stories(rank_articles(conn, arts), limit)
 
 
+# Video sources (category `video` in feeds.yaml), shown on /videos: trusted AI
+# YouTube channels, pulled via each channel's own RSS feed (no API key).
+VIDEO_SOURCES = {
+    "AI Daily Brief (YouTube)",
+    "Matthew Berman",
+    "Matt Wolfe",
+    "AI Explained",
+    "Two Minute Papers",
+    "Google DeepMind (YouTube)",
+}
+
+
+def videos_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
+    return _named_sources_feed(conn, VIDEO_SOURCES, limit)
+
+
+def top_videos(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
+    """Top videos for the Videos-page sidebar, by composite rank."""
+    arts = videos_feed(conn, limit=200)
+    return unique_stories(rank_articles(conn, arts), limit)
+
+
 # Industry View sources (category `industry` in feeds.yaml): consulting,
 # analyst & research-institution AI insights and white papers.
 # HBR, MIT Sloan Management Review, and CB Insights were dropped — their content

@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import analytics, db
 from .config import settings
-from .enrich import cluster, summarize
+from .enrich import cluster, images, summarize
 from .ingest import pipeline
 from .routes import admin, dashboard, seo
 from .timefmt import is_recent, timeago
@@ -52,6 +52,26 @@ async def _job_enrich() -> None:
         conn.close()
 
 
+async def _job_images() -> None:
+    """Drain the missing-thumbnail queue: scrape og:image for articles whose
+    feed item didn't carry one (the large majority of them)."""
+    conn = db.connect()
+    try:
+        await images.run_image_backfill(conn, settings.image_backfill_batch)
+    finally:
+        conn.close()
+
+
+async def _job_details() -> None:
+    """Drain the missing-long-summary queue: generate the 100+ word reader
+    summary shown on the post page before "Read full story"."""
+    conn = db.connect()
+    try:
+        await summarize.run_detail_backfill(conn, settings.detail_backfill_batch)
+    finally:
+        conn.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     conn = db.connect()
@@ -63,6 +83,10 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_job_fetch, "interval", seconds=settings.fetch_interval,
                       id="fetch", next_run_time=None)
     scheduler.add_job(_job_enrich, "interval", seconds=settings.enrich_interval, id="enrich")
+    scheduler.add_job(_job_images, "interval", seconds=settings.image_backfill_interval,
+                      id="images")
+    scheduler.add_job(_job_details, "interval", seconds=settings.detail_backfill_interval,
+                      id="details")
     scheduler.start()
     app.state.scheduler = scheduler
 
@@ -80,7 +104,8 @@ app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 
 # share templates + job callables with routers
 app.state.templates = templates
-app.state.jobs = {"fetch": _job_fetch, "enrich": _job_enrich}
+app.state.jobs = {"fetch": _job_fetch, "enrich": _job_enrich, "images": _job_images,
+                  "details": _job_details}
 
 app.include_router(dashboard.router)
 app.include_router(admin.router)

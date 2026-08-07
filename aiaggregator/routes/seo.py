@@ -29,6 +29,7 @@ SECTIONS: list[tuple[str, str]] = [
     ("/architecture", "0.7"),
     ("/blogs", "0.7"),
     ("/podcasts", "0.6"),
+    ("/videos", "0.6"),
 ]
 
 
