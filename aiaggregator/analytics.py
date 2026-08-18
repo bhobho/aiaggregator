@@ -42,6 +42,7 @@ def _fmt_duration(ms: float | None) -> str:
 # reads as "time spent on Tech News" rather than a wall of individual URLs.
 _SECTIONS: list[tuple[str, str]] = [
     ("/post/", "Article pages"),
+    ("/mypage", "My Page"),
     ("/market", "AI News"),
     ("/tech", "Tech News"),
     ("/industry", "Industry View"),
@@ -53,7 +54,7 @@ _SECTIONS: list[tuple[str, str]] = [
 
 def _section(path: str) -> str:
     if path == "/":
-        return "My Page"
+        return "AI Spotlight"
     for prefix, label in _SECTIONS:
         if path.startswith(prefix):
             return label

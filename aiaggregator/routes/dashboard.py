@@ -5,7 +5,7 @@ import asyncio
 import json
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
 from .. import (db, market as marketmod, queries, sanitize, ticker as tickermod,
                 vendors as vendormod, videos as videosmod)
@@ -65,8 +65,8 @@ def _feed_context(request: Request, f: queries.FeedFilters, *,
         conn.close()
 
 
-@router.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+@router.get("/mypage", response_class=HTMLResponse)
+async def mypage_view(request: Request):
     # My Page: the site owner's own posts — Medium (and LinkedIn, once a feed is
     # configured) — with thumbnail images.
     conn = db.connect()
@@ -267,10 +267,11 @@ async def podcasts_view(request: Request):
     return templates.TemplateResponse(request, "index.html", ctx)
 
 
-@router.get("/videos", response_class=HTMLResponse)
-async def videos_view(request: Request):
-    # Videos: latest uploads from trusted AI YouTube channels (daily-news shows,
-    # deep-dive research breakdowns, official lab channels), newest first.
+@router.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    # AI Spotlight (home): latest uploads from trusted AI YouTube channels
+    # (daily-news shows, deep-dive research breakdowns, official lab channels),
+    # newest first.
     conn = db.connect()
     try:
         articles = queries.videos_feed(conn)
@@ -283,7 +284,7 @@ async def videos_view(request: Request):
             "headlines_title": "Top Videos",
             "voices": None,
             "filters": None,
-            "heading": "AI Videos",
+            "heading": "AI Spotlight",
             "sub": "latest videos from trusted AI YouTube channels — daily briefs, "
                    "deep-dive analysis & official lab updates",
             "chips": None,
@@ -294,6 +295,12 @@ async def videos_view(request: Request):
         conn.close()
     templates = request.app.state.templates
     return templates.TemplateResponse(request, "index.html", ctx)
+
+
+@router.get("/videos", include_in_schema=False)
+async def videos_redirect():
+    # Old URL, kept working for bookmarks/links — content now lives at "/".
+    return RedirectResponse(url="/", status_code=301)
 
 
 @router.get("/topic/{tag}", response_class=HTMLResponse)

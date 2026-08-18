@@ -23,13 +23,13 @@ router = APIRouter()
 # Indexable navigational pages, with their crawl priority.
 SECTIONS: list[tuple[str, str]] = [
     ("/", "1.0"),
+    ("/mypage", "0.6"),
     ("/market", "0.8"),
     ("/tech", "0.8"),
     ("/industry", "0.7"),
     ("/architecture", "0.7"),
     ("/blogs", "0.7"),
     ("/podcasts", "0.6"),
-    ("/videos", "0.6"),
 ]
 
 
