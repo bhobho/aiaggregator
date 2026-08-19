@@ -53,9 +53,10 @@ sources:
   - name: The Verge AI
     url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
     category: market
-  # Reuters retired public RSS; Google News site-query instead.
+  # Reuters retired public RSS; Google News site-query scoped to their
+  # Technology > Artificial Intelligence section instead.
   - name: Reuters AI
-    url: https://news.google.com/rss/search?q=site:reuters.com%20AI&hl=en-US&gl=US&ceid=US:en
+    url: https://news.google.com/rss/search?q=site:reuters.com/technology/artificial-intelligence&hl=en-US&gl=US&ceid=US:en
     category: market
   - name: AI Business
     url: https://aibusiness.com/rss.xml
