@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{ 'Edit' if post else 'New' }} Post · AI Aggregator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+  <style>
+    .ql-editor { min-height: 320px; font-size: 1rem; line-height: 1.6; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <a href="{{ editor_path }}" class="text-sm font-semibold text-gray-500 hover:underline">&larr; All posts</a>
+    <h1 class="text-xl font-extrabold mt-2 mb-6">{{ 'Edit Post' if post else 'New Post' }}</h1>
+
+    <form id="post-form" method="post" action="{{ editor_path }}/save" class="space-y-5">
+      {% if post %}<input type="hidden" name="id" value="{{ post.id }}">{% endif %}
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">Title</label>
+        <input type="text" name="title" required value="{{ post.title if post else '' }}"
+               class="w-full border border-gray-300 rounded px-3 py-2 text-lg font-semibold"
+               placeholder="Post title">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">
+          Cover image <span class="font-normal text-gray-500">(optional — thumbnail &amp; link-preview image)</span>
+        </label>
+        <input type="file" id="cover-input" accept="image/*" class="block text-sm">
+        <input type="hidden" name="cover_image_url" id="cover_image_url"
+               value="{{ post.image_url if post and post.image_url else '' }}">
+        <img id="cover-preview" src="{{ post.image_url if post and post.image_url else '' }}"
+             class="mt-2 max-h-40 rounded border border-gray-200 {% if not (post and post.image_url) %}hidden{% endif %}">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">Body</label>
+        <div id="editor" class="bg-white border border-gray-300 rounded">{% if post and post.content %}{{ post.content | safe }}{% endif %}</div>
+        <input type="hidden" name="content" id="content-input">
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded hover:opacity-90">
+          {{ 'Save Changes' if post else 'Publish' }}
+        </button>
+        <span id="save-status" class="text-sm text-gray-500"></span>
+      </div>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+  <script>
+    const EDITOR_PATH = {{ editor_path | tojson }};
+
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      modules: {
+        toolbar: [
+          [{ header: [2, 3, false] }],
+          ['bold', 'italic', 'underline'],
+          ['blockquote', 'code-block'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['link', 'image'],
+          ['clean'],
+        ],
+      },
+    });
+
+    async function uploadImage(file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(EDITOR_PATH + '/upload-image', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Image upload failed' + (err.error ? ': ' + err.error : ''));
+        return null;
+      }
+      const data = await res.json();
+      return data.url;
+    }
+
+    // Inline image button: pick a file, upload it, insert the returned URL at
+    // the cursor — this is what "rich text + images" means in the body itself.
+    quill.getModule('toolbar').addHandler('image', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+        const url = await uploadImage(file);
+        if (url) {
+          const range = quill.getSelection(true);
+          quill.insertEmbed(range.index, 'image', url);
+          quill.setSelection(range.index + 1);
+        }
+      };
+      input.click();
+    });
+
+    document.getElementById('cover-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('save-status').textContent = 'Uploading cover image…';
+      const url = await uploadImage(file);
+      document.getElementById('save-status').textContent = '';
+      if (url) {
+        document.getElementById('cover_image_url').value = url;
+        const preview = document.getElementById('cover-preview');
+        preview.src = url;
+        preview.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('post-form').addEventListener('submit', () => {
+      document.getElementById('content-input').value = quill.root.innerHTML;
+    });
+  </script>
+</body>
+</html>

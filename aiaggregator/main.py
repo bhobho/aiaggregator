@@ -18,7 +18,7 @@ from . import analytics, db
 from .config import settings
 from .enrich import cluster, images, summarize
 from .ingest import pipeline
-from .routes import admin, dashboard, seo
+from .routes import admin, dashboard, editor, seo
 from .timefmt import is_recent, timeago
 
 logging.basicConfig(level=logging.ERROR,
@@ -102,6 +102,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="aiaggregator", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 
+# Editor-uploaded images live under data/ (gitignored), not static/ (repo-tracked)
+# — see config.Settings.uploads_dir and routes/editor.py.
+settings.uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(settings.uploads_dir)), name="uploads")
+
 # share templates + job callables with routers
 app.state.templates = templates
 app.state.jobs = {"fetch": _job_fetch, "enrich": _job_enrich, "images": _job_images,
@@ -110,6 +115,7 @@ app.state.jobs = {"fetch": _job_fetch, "enrich": _job_enrich, "images": _job_ima
 app.include_router(dashboard.router)
 app.include_router(admin.router)
 app.include_router(seo.router)
+app.include_router(editor.router)
 
 
 # ----- visitor analytics (hidden) -------------------------------------------
@@ -133,9 +139,11 @@ async def _track_visits(request, call_next):
         path = request.url.path
         skip = (request.method != "GET"
                 or path.startswith("/static")
+                or path.startswith("/uploads")
                 or path.startswith("/beacon")
                 or path in ("/feed", "/favicon.ico")
                 or path == settings.analytics_path
+                or path.startswith(settings.editor_path)
                 or _is_excluded(_client_ip(request)))
         if not skip:
             conn = db.connect()

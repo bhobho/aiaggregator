@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>My Blog Posts · AI Aggregator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-xl font-extrabold">My Blog Posts</h1>
+        <p class="text-xs text-gray-500 mt-1">Written here, shown on My Page.</p>
+      </div>
+      <a href="{{ editor_path }}/new"
+         class="bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded hover:opacity-90">
+        + New Post
+      </a>
+    </div>
+
+    {% if not posts %}
+    <p class="text-sm text-gray-500">No posts yet — click "New Post" to write one.</p>
+    {% endif %}
+
+    <div class="space-y-3">
+      {% for p in posts %}
+      <div class="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-4">
+        {% if p.image_url %}
+        <img src="{{ p.image_url }}" alt="" class="w-16 h-16 rounded object-cover shrink-0"
+             onerror="this.remove()">
+        {% endif %}
+        <div class="min-w-0 flex-1">
+          <a href="/post/{{ p.id }}" target="_blank" class="font-semibold hover:underline truncate block">
+            {{ p.title }}
+          </a>
+          <p class="text-xs text-gray-500 mt-1">
+            {{ p.published_at or p.fetched_at }} ·
+            {% if p.status == 'new' %}summarizing…{% else %}{{ p.status }}{% endif %}
+          </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <a href="{{ editor_path }}/edit/{{ p.id }}" class="text-sm font-semibold text-blue-700 hover:underline">Edit</a>
+          <form method="post" action="{{ editor_path }}/delete/{{ p.id }}"
+                onsubmit="return confirm('Delete this post? This can\'t be undone.')">
+            <button type="submit" class="text-sm font-semibold text-red-600 hover:underline">Delete</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>

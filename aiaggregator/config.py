@@ -54,6 +54,18 @@ class Settings(BaseSettings):
     def analytics_exclude_ip_set(self) -> set[str]:
         return {ip.strip() for ip in self.analytics_exclude_ips.split(",") if ip.strip()}
 
+    # Hidden blog editor (not linked in the UI) — same obscurity + token pattern
+    # as the analytics page above. Set the token in .env since the repo is public;
+    # with no token set the page 404s for everyone (safe default).
+    editor_path: str = "/_editor"
+    editor_token: str = ""
+
+    @property
+    def uploads_dir(self) -> Path:
+        """Where editor-uploaded images live — under data/, not static/, so
+        personal/uploaded images never end up committed to the (public) repo."""
+        return self.db_path.parent / "uploads"
+
     # Ingestion
     http_timeout: float = 30.0
     user_agent: str = "aiaggregator/0.1 (+local; RSS reader)"

@@ -7,7 +7,7 @@ import sqlite3
 
 import httpx
 
-from .. import db
+from .. import db, queries
 from ..feeds import load_feeds
 from .fetcher import fetch_feed
 from .normalize import parse_feed
@@ -20,9 +20,14 @@ def sync_sources(conn: sqlite3.Connection) -> None:
 
     Sources removed from the YAML are pruned: their articles are deleted and the
     source row removed, so dropped feeds (e.g. arXiv, Reddit) stop appearing.
+
+    The locally-written blog source (routes.editor) isn't in feeds.yaml — it's
+    not fetched, just written to directly — so it's always kept here, or a
+    restart would prune it and cascade-delete every post written through it.
     """
     sources, _ = load_feeds()
     keep_urls = {s.url for s in sources}
+    keep_urls.add(queries.OWN_BLOG_SOURCE_URL)
     for src in sources:
         db.upsert_source(conn, src)
     db.prune_sources(conn, keep_urls)
@@ -60,7 +65,10 @@ async def run_ingest(conn: sqlite3.Connection) -> int:
     yaml_sources, keywords = load_feeds()
     # broad feeds flagged `filter: true` in feeds.yaml keep only AI-relevant items
     filtered_urls = {s.url for s in yaml_sources if s.keyword_filter}
-    sources = db.list_sources(conn, active_only=True)
+    # The locally-written blog source (routes.editor) stays active so it still
+    # shows up in My Page queries, but it's not a feed to poll — nothing to fetch.
+    sources = [s for s in db.list_sources(conn, active_only=True)
+              if s.url != queries.OWN_BLOG_SOURCE_URL]
     total = 0
     limits = httpx.Limits(max_connections=8)
     async with httpx.AsyncClient(limits=limits) as client:

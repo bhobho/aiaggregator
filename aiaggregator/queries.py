@@ -364,19 +364,36 @@ def featured_voice_feed(conn: sqlite3.Connection, limit: int = 5) -> list[Articl
     return _named_sources_feed(conn, MY_SOURCES, limit)
 
 
-# ---- "My Page": the site owner's own posts (Medium + Hashnode) --------------
+# ---- "My Page": the site owner's own posts (Medium + Hashnode + local) ------
 MY_MEDIUM_SOURCE = PRIORITY_VOICE            # "Neeraj Pandey (Medium)"
 MY_HASHNODE_SOURCE = SECOND_VOICE            # "Neeraj Pandey (Hashnode)"
 MY_LINKEDIN_SOURCE = "Neeraj Pandey (LinkedIn)"
+# Written directly through the hidden /_editor page (see routes.editor) rather
+# than ingested from an RSS feed — no `sources.url` to poll, just a fixed
+# placeholder so it satisfies the UNIQUE constraint.
+OWN_BLOG_SOURCE = "Neeraj Pandey (AI Aggregator)"
+OWN_BLOG_SOURCE_URL = "local://own-blog"
 
 # Sources whose posts are the owner's own: shown on My Page and rendered in full
 # in-portal (see routes.dashboard.post_view).
-MY_SOURCES = {MY_MEDIUM_SOURCE, MY_HASHNODE_SOURCE}
+MY_SOURCES = {MY_MEDIUM_SOURCE, MY_HASHNODE_SOURCE, OWN_BLOG_SOURCE}
 
 
 def my_posts_feed(conn: sqlite3.Connection, limit: int = 60) -> list[Article]:
-    """All of the owner's own posts (Medium + Hashnode), newest first."""
+    """All of the owner's own posts (Medium + Hashnode + locally written), newest first."""
     return _named_sources_feed(conn, MY_SOURCES, limit)
+
+
+def own_blog_posts(conn: sqlite3.Connection, limit: int = 200) -> list[Article]:
+    """Posts written locally through the hidden editor, newest first (used by
+    the editor's own list view — unlike my_posts_feed, doesn't mix in Medium/
+    Hashnode since those aren't editable here)."""
+    rows = conn.execute(
+        """SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
+           WHERE s.name = ? ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT ?""",
+        (OWN_BLOG_SOURCE, limit),
+    ).fetchall()
+    return [Article.from_row(r) for r in rows]
 
 
 def my_medium_feed(conn: sqlite3.Connection, limit: int = 60) -> list[Article]:

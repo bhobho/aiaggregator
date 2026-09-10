@@ -334,6 +334,26 @@ def save_detail_summary(conn: sqlite3.Connection, article_id: int, text: str) ->
     conn.commit()
 
 
+def update_article(conn: sqlite3.Connection, article_id: int, *, title: str,
+                   content: str, raw_summary: str, image_url: str | None) -> None:
+    """Overwrite a locally-authored post's editable fields (see routes.editor)
+    and requeue it for (re-)enrichment — same status a freshly ingested article
+    starts in, so tags/importance/summary get regenerated for the new text."""
+    conn.execute(
+        """UPDATE articles
+           SET title=?, content=?, raw_summary=?, image_url=?, status='new',
+               summary=NULL, detail_summary=NULL, tags=NULL, companies=NULL, importance=NULL
+           WHERE id=?""",
+        (title, content, raw_summary, image_url, article_id),
+    )
+    conn.commit()
+
+
+def delete_article(conn: sqlite3.Connection, article_id: int) -> None:
+    conn.execute("DELETE FROM articles WHERE id=?", (article_id,))
+    conn.commit()
+
+
 def cluster_sizes(conn: sqlite3.Connection) -> dict[int, int]:
     return {r["id"]: r["size"] for r in conn.execute("SELECT id, size FROM clusters")}
 
