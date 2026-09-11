@@ -235,6 +235,9 @@ sources:
     url: https://www.youtube.com/feeds/videos.xml?channel_id=UCP7jMXSY2xbc3KCAE0MHQ-A
     category: video
     company: Google DeepMind
+  - name: Vaibhav Sisinty
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UClXAalunTPaX1YV185DWUeg
+    category: video
 
   # ---- Architecture: reference architectures & engineering deep-dives ----
   # Trustworthy publications that post actual articles (NOT GitHub commit/release

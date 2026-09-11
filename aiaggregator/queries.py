@@ -459,11 +459,23 @@ VIDEO_SOURCES = {
     "AI Explained",
     "Two Minute Papers",
     "Google DeepMind (YouTube)",
+    "Vaibhav Sisinty",
 }
 
 
 def videos_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
-    return _named_sources_feed(conn, VIDEO_SOURCES, limit)
+    """Latest videos across all trusted channels for AI Spotlight, round-robin
+    interleaved by channel (newest first within each) rather than one pooled
+    newest-first sort — otherwise a channel that posts often (daily shorts,
+    say) crowds out lower-frequency channels that still have relevant videos."""
+    per_source = max(limit // max(len(VIDEO_SOURCES), 1), 6)
+    by_source = [_named_sources_feed(conn, {name}, per_source) for name in VIDEO_SOURCES]
+    interleaved: list[Article] = []
+    for i in range(max((len(s) for s in by_source), default=0)):
+        for s in by_source:
+            if i < len(s):
+                interleaved.append(s[i])
+    return dedupe_stories(interleaved)[:limit]
 
 
 def top_videos(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
