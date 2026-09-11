@@ -5,6 +5,7 @@ loopback addresses are labelled "Local" without any external call.
 """
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import logging
 import sqlite3
@@ -127,36 +128,69 @@ def _is_private(ip: str) -> bool:
     return addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved
 
 
-async def _lookup(client: httpx.AsyncClient, ip: str) -> tuple[str, str, str]:
-    """Return (country, region, city) for a public IP; ('Local','','') for private."""
+# ip-api.com fail-status messages that mean "this IP will never resolve" (bad
+# input, not a server hiccup) — safe to cache permanently. Anything else
+# (rate limited, timeout, unexpected error) is transient: must NOT be cached,
+# or a passing rate-limit blip would mislabel a real visitor as "Unknown" forever.
+_PERMANENT_FAIL_MESSAGES = {"invalid query", "private range", "reserved range"}
+
+# ip-api.com's free tier: 45 requests/min from our server's IP, HTTP 429 (or a
+# 1h ban if we ignore it repeatedly) past that. Pacing every lookup this far
+# apart keeps a full batch safely under the limit even back-to-back.
+_LOOKUP_MIN_INTERVAL = 1.5  # seconds
+
+
+_RATE_LIMITED = object()  # sentinel: stop the whole pass, don't just skip this ip
+
+
+async def _lookup(client: httpx.AsyncClient, ip: str):
+    """Return (country, region, city) for a public IP, ('Local','','') for
+    private/unroutable ranges, _RATE_LIMITED if ip-api.com throttled us, or
+    None for any other transient failure — both of the latter should be
+    retried later rather than cached."""
     if _is_private(ip):
         return ("Local", "", "")
     try:
         r = await client.get(
             f"http://ip-api.com/json/{ip}",
-            params={"fields": "status,country,regionName,city"},
+            params={"fields": "status,message,country,regionName,city"},
             timeout=5.0,
         )
+        if r.status_code == 429:
+            return _RATE_LIMITED
         data = r.json()
         if data.get("status") == "success":
             return (data.get("country") or "Unknown",
                     data.get("regionName") or "",
                     data.get("city") or "")
+        if data.get("message") in _PERMANENT_FAIL_MESSAGES:
+            return ("Unknown", "", "")
+        log.warning("geo lookup failed for %s: %s", ip, data.get("message"))
     except (httpx.HTTPError, ValueError) as exc:
         log.warning("geo lookup failed for %s: %s", ip, exc)
-    return ("Unknown", "", "")
+    return None
 
 
 async def resolve_pending(conn: sqlite3.Connection, limit: int = 50) -> int:
-    """Resolve geo for visitor IPs that aren't cached yet. Best-effort."""
+    """Resolve geo for visitor IPs that aren't cached yet. Best-effort — paced
+    to stay under ip-api.com's rate limit, and stops the pass early if we get
+    throttled anyway rather than burning through the rest of the batch."""
     ips = db.unresolved_ips(conn, limit=limit)
     if not ips:
         return 0
     done = 0
     async with httpx.AsyncClient() as client:
-        for ip in ips:
-            country, region, city = await _lookup(client, ip)
-            db.save_geo(conn, ip, country, region, city)
+        for i, ip in enumerate(ips):
+            if i:
+                await asyncio.sleep(_LOOKUP_MIN_INTERVAL)
+            result = await _lookup(client, ip)
+            if result is _RATE_LIMITED:
+                log.warning("geo lookup rate-limited by ip-api.com; %d/%d done this pass",
+                           done, len(ips))
+                break
+            if result is None:
+                continue  # transient failure — leave unresolved, retry next pass
+            db.save_geo(conn, ip, *result)
             done += 1
     return done
 

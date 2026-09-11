@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     detail_backfill_interval: int = 15  # drain missing-long-summary queue every 15 s
     detail_backfill_batch: int = 20     # articles per detail-summary backfill pass (LLM calls)
 
+    # Visitor geolocation (see analytics.resolve_pending) — ip-api.com's free tier
+    # caps at 45 requests/min from our server's IP, so this runs as its own slow
+    # background pass rather than inline on an /_insights page load: batch *
+    # (1 request per ~1.5s pacing, see analytics._lookup) must stay well under
+    # that per run, and the interval must be longer than a batch takes to run.
+    geo_resolve_interval: int = 90  # drain missing-geo queue every 90 s
+    geo_resolve_batch: int = 40     # visitor IPs resolved per pass
+
     # Public base URL (e.g. https://news.example.com) used to build absolute
     # Open Graph URLs for link previews. Leave empty to derive from the request.
     public_url: str = ""

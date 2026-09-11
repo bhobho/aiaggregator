@@ -72,6 +72,19 @@ async def _job_details() -> None:
         conn.close()
 
 
+async def _job_geo() -> None:
+    """Drain the missing-geo queue: resolve country/city for visitor IPs that
+    don't have a cached lookup yet (see analytics.resolve_pending). Runs as its
+    own background pass, paced under ip-api.com's rate limit, rather than
+    inline on an /_insights page load — that made the page slow to load and,
+    with real traffic volume, could never keep up with the backlog."""
+    conn = db.connect()
+    try:
+        await analytics.resolve_pending(conn, settings.geo_resolve_batch)
+    finally:
+        conn.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     conn = db.connect()
@@ -87,6 +100,7 @@ async def lifespan(app: FastAPI):
                       id="images")
     scheduler.add_job(_job_details, "interval", seconds=settings.detail_backfill_interval,
                       id="details")
+    scheduler.add_job(_job_geo, "interval", seconds=settings.geo_resolve_interval, id="geo")
     scheduler.start()
     app.state.scheduler = scheduler
 
@@ -218,7 +232,9 @@ async def _analytics_view(request: Request):
         return PlainTextResponse("Not Found", status_code=404)
     conn = db.connect()
     try:
-        await analytics.resolve_pending(conn)
+        # Geo resolution runs as its own background job (see _job_geo) so this
+        # page loads instantly instead of blocking on a batch of ip-api.com
+        # calls; unresolved IPs just show as "Unknown" until the next pass.
         data = analytics.summary(conn, days=30)
     finally:
         conn.close()
