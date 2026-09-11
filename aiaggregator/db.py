@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS articles (
     cluster_id   INTEGER,
     image_url    TEXT,
     content      TEXT,
+    enrich_attempts INTEGER NOT NULL DEFAULT 0,
     UNIQUE(source_id, guid)
 );
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
@@ -145,6 +146,8 @@ def init_db(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE articles ADD COLUMN image_url TEXT")
     if "content" not in cols:
         conn.execute("ALTER TABLE articles ADD COLUMN content TEXT")
+    if "enrich_attempts" not in cols:
+        conn.execute("ALTER TABLE articles ADD COLUMN enrich_attempts INTEGER NOT NULL DEFAULT 0")
     conn.commit()
 
 
@@ -282,10 +285,17 @@ def pending_detail_backfill(conn: sqlite3.Connection, limit: int) -> list[Articl
     return [Article.from_row(r) for r in rows]
 
 
-def pending_enrichment(conn: sqlite3.Connection, limit: int) -> list[Article]:
+def pending_enrichment(conn: sqlite3.Connection, limit: int, max_attempts: int = 3) -> list[Article]:
+    """New articles, plus previously-failed ones that haven't exhausted their
+    retry budget yet — a single transient Ollama hiccup (timeout, momentarily
+    unreachable, one bad non-JSON response) used to mark an article 'failed'
+    forever with no way back. Bounded so a genuinely-unenrichable article
+    doesn't retry forever and crowd out real 'new' work."""
     rows = conn.execute(
-        "SELECT * FROM articles WHERE status='new' ORDER BY fetched_at DESC LIMIT ?",
-        (limit,),
+        """SELECT * FROM articles
+           WHERE status='new' OR (status='failed' AND enrich_attempts < ?)
+           ORDER BY fetched_at DESC LIMIT ?""",
+        (max_attempts, limit),
     ).fetchall()
     return [Article.from_row(r) for r in rows]
 
@@ -301,7 +311,10 @@ def save_enrichment(conn: sqlite3.Connection, article_id: int, *, summary: str,
 
 
 def mark_failed(conn: sqlite3.Connection, article_id: int) -> None:
-    conn.execute("UPDATE articles SET status='failed' WHERE id=?", (article_id,))
+    conn.execute(
+        "UPDATE articles SET status='failed', enrich_attempts = enrich_attempts + 1 WHERE id=?",
+        (article_id,),
+    )
     conn.commit()
 
 

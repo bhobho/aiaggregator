@@ -336,16 +336,21 @@ ARCHITECTURE_SOURCES = {
 }
 
 
-def _named_sources_feed(conn: sqlite3.Connection, names: set[str],
-                        limit: int) -> list[Article]:
+def _named_sources_feed(conn: sqlite3.Connection, names: set[str], limit: int,
+                        min_importance: int | None = None) -> list[Article]:
     """Newest-first, de-duplicated items from the named sources (posts and
-    episodes age better than news, so recency beats the composite ranking)."""
+    episodes age better than news, so recency beats the composite ranking).
+    min_importance optionally drops items below an LLM-assigned significance
+    score (unenriched items score 0, so they're excluded too — they'll appear
+    once enrichment catches up, same as everywhere else importance is used)."""
     marks = ",".join("?" * len(names))
+    imp_clause = " AND COALESCE(a.importance, 0) >= ?" if min_importance is not None else ""
+    params = [*names, *([min_importance] if min_importance is not None else []), limit * 3]
     rows = conn.execute(
         f"""SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
-            WHERE s.active = 1 AND s.name IN ({marks})
+            WHERE s.active = 1 AND s.name IN ({marks}){imp_clause}
             ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT ?""",
-        [*names, limit * 3],
+        params,
     ).fetchall()
     return dedupe_stories([Article.from_row(r) for r in rows])[:limit]
 
@@ -462,6 +467,16 @@ VIDEO_SOURCES = {
     "Vaibhav Sisinty",
 }
 
+# AI Spotlight is meant to be AI news/updates/launches, not general tutorials,
+# opinion, or (for the broader creator channels) off-topic content — so videos
+# are gated on the same LLM-assigned "significance to the AI field" score
+# (enrich/summarize.py) used elsewhere, not just recency. A moderate bar:
+# high enough to drop routine/generic videos, not so high it empties the page
+# (70+ is reserved for the "Major" badge on real news, a stricter bar than a
+# YouTube video's often-thin description can reliably earn). Tune if it's
+# over- or under-filtering once there's real enriched data to look at.
+VIDEO_MIN_IMPORTANCE = 35
+
 
 def videos_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
     """Latest videos across all trusted channels for AI Spotlight, round-robin
@@ -469,7 +484,9 @@ def videos_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
     newest-first sort — otherwise a channel that posts often (daily shorts,
     say) crowds out lower-frequency channels that still have relevant videos."""
     per_source = max(limit // max(len(VIDEO_SOURCES), 1), 6)
-    by_source = [_named_sources_feed(conn, {name}, per_source) for name in VIDEO_SOURCES]
+    by_source = [_named_sources_feed(conn, {name}, per_source,
+                                     min_importance=VIDEO_MIN_IMPORTANCE)
+                for name in VIDEO_SOURCES]
     interleaved: list[Article] = []
     for i in range(max((len(s) for s in by_source), default=0)):
         for s in by_source:

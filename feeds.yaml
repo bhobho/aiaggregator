@@ -235,9 +235,13 @@ sources:
     url: https://www.youtube.com/feeds/videos.xml?channel_id=UCP7jMXSY2xbc3KCAE0MHQ-A
     category: video
     company: Google DeepMind
+  # Broader creator channel (growth/marketing content too, not just AI) —
+  # filter: true keeps only videos whose title/description are AI-relevant
+  # (see community_keywords below), same mechanism used for other broad feeds.
   - name: Vaibhav Sisinty
     url: https://www.youtube.com/feeds/videos.xml?channel_id=UClXAalunTPaX1YV185DWUeg
     category: video
+    filter: true
 
   # ---- Architecture: reference architectures & engineering deep-dives ----
   # Trustworthy publications that post actual articles (NOT GitHub commit/release
