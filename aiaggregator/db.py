@@ -285,15 +285,28 @@ def pending_detail_backfill(conn: sqlite3.Connection, limit: int) -> list[Articl
     return [Article.from_row(r) for r in rows]
 
 
-def pending_enrichment(conn: sqlite3.Connection, limit: int, max_attempts: int = 3) -> list[Article]:
-    """New articles, plus previously-failed ones that haven't exhausted their
-    retry budget yet — a single transient Ollama hiccup (timeout, momentarily
-    unreachable, one bad non-JSON response) used to mark an article 'failed'
-    forever with no way back. Bounded so a genuinely-unenrichable article
-    doesn't retry forever and crowd out real 'new' work."""
+def pending_enrichment(conn: sqlite3.Connection, limit: int) -> list[Article]:
+    """Freshly-ingested articles awaiting their first enrichment pass."""
     rows = conn.execute(
-        """SELECT * FROM articles
-           WHERE status='new' OR (status='failed' AND enrich_attempts < ?)
+        "SELECT * FROM articles WHERE status='new' ORDER BY fetched_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [Article.from_row(r) for r in rows]
+
+
+def pending_retry_enrichment(conn: sqlite3.Connection, limit: int,
+                             max_attempts: int = 3) -> list[Article]:
+    """Previously-failed articles still within their retry budget — a single
+    transient Ollama hiccup (timeout, momentarily unreachable, one bad
+    non-JSON response) used to mark an article 'failed' forever with no way
+    back. Queried separately from pending_enrichment and given its own small
+    quota per pass (see summarize.run_enrichment): a low-volume category's
+    backlog (e.g. videos) would otherwise never get a turn in one shared
+    recency-ordered queue against a continuous stream of fresh high-volume
+    content (e.g. AI News). Bounded by max_attempts so a genuinely
+    unenrichable article doesn't retry forever."""
+    rows = conn.execute(
+        """SELECT * FROM articles WHERE status='failed' AND enrich_attempts < ?
            ORDER BY fetched_at DESC LIMIT ?""",
         (max_attempts, limit),
     ).fetchall()

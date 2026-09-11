@@ -143,11 +143,18 @@ async def detail_summary(title: str, summary: str | None, raw: str) -> str | Non
 
 
 async def run_enrichment(conn: sqlite3.Connection, limit: int) -> int:
-    """Enrich up to `limit` pending articles. Returns count enriched."""
+    """Enrich up to `limit` pending articles. Returns count enriched.
+
+    A small slice of every pass is reserved for retrying previously-failed
+    articles (see db.pending_retry_enrichment), separate from the 'new' queue
+    — otherwise a low-volume category's failed backlog would never get a turn
+    against a continuous stream of fresh high-volume content."""
     if not await ollama_client.is_available():
         log.warning("Ollama not available; skipping enrichment pass")
         return 0
-    pending = db.pending_enrichment(conn, limit)
+    retry_quota = min(3, limit)
+    pending = (db.pending_enrichment(conn, limit - retry_quota)
+              + db.pending_retry_enrichment(conn, retry_quota))
     done = 0
     for article in pending:
         if await enrich_article(conn, article):
