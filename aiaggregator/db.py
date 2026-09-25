@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from pathlib import Path
 
 from .config import settings
 from .models import Article, Source, now_iso
+
+log = logging.getLogger(__name__)
+
+_FTS_TRIGGERS = ("articles_ai", "articles_ad", "articles_au")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sources (
@@ -107,19 +112,24 @@ CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
     title, summary, tags, content='articles', content_rowid='id'
 );
 
+-- The index holds exactly the articles columns it names, so the triggers pass
+-- the plain column values: that keeps it identical to what FTS5's 'rebuild'
+-- produces, which makes 'rebuild' a safe repair at any time (see
+-- maintenance.py). The update trigger fires only for those columns — status,
+-- cluster, embedding and image writes don't touch the index.
 CREATE TRIGGER IF NOT EXISTS articles_ai AFTER INSERT ON articles BEGIN
     INSERT INTO articles_fts(rowid, title, summary, tags)
-    VALUES (new.id, new.title, COALESCE(new.summary, new.raw_summary), COALESCE(new.tags, ''));
+    VALUES (new.id, new.title, new.summary, new.tags);
 END;
 CREATE TRIGGER IF NOT EXISTS articles_ad AFTER DELETE ON articles BEGIN
     INSERT INTO articles_fts(articles_fts, rowid, title, summary, tags)
-    VALUES('delete', old.id, old.title, COALESCE(old.summary, old.raw_summary), COALESCE(old.tags, ''));
+    VALUES('delete', old.id, old.title, old.summary, old.tags);
 END;
-CREATE TRIGGER IF NOT EXISTS articles_au AFTER UPDATE ON articles BEGIN
+CREATE TRIGGER IF NOT EXISTS articles_au AFTER UPDATE OF title, summary, tags ON articles BEGIN
     INSERT INTO articles_fts(articles_fts, rowid, title, summary, tags)
-    VALUES('delete', old.id, old.title, COALESCE(old.summary, old.raw_summary), COALESCE(old.tags, ''));
+    VALUES('delete', old.id, old.title, old.summary, old.tags);
     INSERT INTO articles_fts(rowid, title, summary, tags)
-    VALUES (new.id, new.title, COALESCE(new.summary, new.raw_summary), COALESCE(new.tags, ''));
+    VALUES (new.id, new.title, new.summary, new.tags);
 END;
 """
 
@@ -134,8 +144,34 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
     return conn
 
 
+def _upgrade_fts_triggers(conn: sqlite3.Connection) -> None:
+    """Replace the original search-index triggers, then re-index once.
+
+    The originals indexed COALESCE(summary, raw_summary) — a value that isn't
+    in any articles column — so FTS5's 'rebuild' (which reads the columns)
+    produced a different index than the triggers maintained. After a rebuild,
+    the triggers then deleted entries that were never indexed, and search
+    results drifted. They also fired on every column update. CREATE ... IF NOT
+    EXISTS won't replace an existing trigger, so drop and recreate them."""
+    old = [r["sql"] for r in conn.execute(
+        f"SELECT sql FROM sqlite_master WHERE type='trigger' AND name IN "
+        f"({','.join('?' * len(_FTS_TRIGGERS))})", _FTS_TRIGGERS)]
+    if not any("raw_summary" in s or "AFTER UPDATE ON" in s for s in old):
+        return
+    for name in _FTS_TRIGGERS:
+        conn.execute(f"DROP TRIGGER IF EXISTS {name}")
+    conn.executescript(SCHEMA)
+    try:
+        conn.execute("INSERT INTO articles_fts(articles_fts) VALUES('rebuild')")
+        conn.commit()
+    except sqlite3.DatabaseError:
+        # Don't block startup; the nightly maintenance check will flag it.
+        log.exception("search index rebuild failed during trigger upgrade")
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    _upgrade_fts_triggers(conn)
     # additive migration for DBs created before detail_summary existed
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(articles)")}
     if "detail_summary" not in cols:
@@ -286,9 +322,16 @@ def pending_detail_backfill(conn: sqlite3.Connection, limit: int) -> list[Articl
 
 
 def pending_enrichment(conn: sqlite3.Connection, limit: int) -> list[Article]:
-    """Freshly-ingested articles awaiting their first enrichment pass."""
+    """Freshly-ingested articles awaiting their first enrichment pass.
+
+    Videos go first: AI Spotlight (the home page) only shows a video once it
+    has been enriched and scored, so a video stuck behind a backlog of
+    articles leaves the home page empty. Only a handful arrive per day, so
+    putting them first costs the other sections almost nothing."""
     rows = conn.execute(
-        "SELECT * FROM articles WHERE status='new' ORDER BY fetched_at DESC LIMIT ?",
+        """SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
+           WHERE a.status='new'
+           ORDER BY (s.category = 'video') DESC, a.fetched_at DESC LIMIT ?""",
         (limit,),
     ).fetchall()
     return [Article.from_row(r) for r in rows]
@@ -300,14 +343,27 @@ def pending_retry_enrichment(conn: sqlite3.Connection, limit: int,
     transient Ollama hiccup (timeout, momentarily unreachable, one bad
     non-JSON response) used to mark an article 'failed' forever with no way
     back. Queried separately from pending_enrichment and given its own small
-    quota per pass (see summarize.run_enrichment): a low-volume category's
-    backlog (e.g. videos) would otherwise never get a turn in one shared
-    recency-ordered queue against a continuous stream of fresh high-volume
-    content (e.g. AI News). Bounded by max_attempts so a genuinely
-    unenrichable article doesn't retry forever."""
+    quota per pass (see summarize.run_enrichment): a low-volume source's
+    backlog (e.g. a single YouTube channel) would otherwise never get a turn
+    against a continuous stream of fresh high-volume failures from a busy
+    source (e.g. Market/AI News) — a plain 'ORDER BY fetched_at DESC' always
+    hands every slot in a small per-pass quota to whichever source fails most
+    often, so a low-volume source's backlog can sit unretried indefinitely
+    even though each item is individually still within its attempt budget.
+    Ranking by recency *within each source* first (source_rank), and only then
+    by recency overall, guarantees every source with a failed backlog gets a
+    slot before any single source gets a second one. Bounded by max_attempts
+    so a genuinely unenrichable article doesn't retry forever."""
     rows = conn.execute(
-        """SELECT * FROM articles WHERE status='failed' AND enrich_attempts < ?
-           ORDER BY fetched_at DESC LIMIT ?""",
+        """SELECT * FROM (
+               SELECT *, ROW_NUMBER() OVER (
+                   PARTITION BY source_id ORDER BY fetched_at DESC
+               ) AS source_rank
+               FROM articles
+               WHERE status='failed' AND enrich_attempts < ?
+           )
+           ORDER BY source_rank ASC, fetched_at DESC
+           LIMIT ?""",
         (max_attempts, limit),
     ).fetchall()
     return [Article.from_row(r) for r in rows]

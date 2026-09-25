@@ -4,15 +4,31 @@ from __future__ import annotations
 import asyncio
 import logging
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
 from .. import db, queries
+from ..config import settings
 from ..feeds import load_feeds
 from .fetcher import fetch_feed
 from .normalize import parse_feed
 
 log = logging.getLogger(__name__)
+
+
+def _too_old(published_at: str | None, max_age_days: int) -> bool:
+    """True if an ISO timestamp is older than max_age_days. Missing or
+    unparseable dates are kept (the display-side window still applies)."""
+    if not published_at:
+        return False
+    try:
+        ts = datetime.fromisoformat(published_at)
+    except ValueError:
+        return False
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts < datetime.now(timezone.utc) - timedelta(days=max_age_days)
 
 
 def sync_sources(conn: sqlite3.Connection) -> None:
@@ -50,6 +66,11 @@ async def _ingest_one(client: httpx.AsyncClient, conn: sqlite3.Connection, src,
         res.body, src.id,
         is_community=(src.category == "community" or use_filter), keywords=keywords,
     )
+    if src.category == "video":
+        # A channel feed lists its latest ~15 uploads, often weeks old; only
+        # keep the rolling window AI Spotlight shows (see settings).
+        articles = [a for a in articles
+                    if not _too_old(a.published_at, settings.video_max_age_days)]
     new = 0
     for a in articles:
         if db.insert_article(conn, a) is not None:

@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 
 from . import db, market as marketmod, ranking, textnorm, vendors as vendormod
+from .config import settings
 from .models import Article
 
 
@@ -337,18 +338,29 @@ ARCHITECTURE_SOURCES = {
 
 
 def _named_sources_feed(conn: sqlite3.Connection, names: set[str], limit: int,
-                        min_importance: int | None = None) -> list[Article]:
+                        min_importance: int | None = None,
+                        max_age_days: int | None = None) -> list[Article]:
     """Newest-first, de-duplicated items from the named sources (posts and
     episodes age better than news, so recency beats the composite ranking).
     min_importance optionally drops items below an LLM-assigned significance
     score (unenriched items score 0, so they're excluded too — they'll appear
-    once enrichment catches up, same as everywhere else importance is used)."""
+    once enrichment catches up, same as everywhere else importance is used).
+    max_age_days optionally keeps only items published within that many days
+    (julianday() parses the stored ISO timestamps, offsets included)."""
     marks = ",".join("?" * len(names))
-    imp_clause = " AND COALESCE(a.importance, 0) >= ?" if min_importance is not None else ""
-    params = [*names, *([min_importance] if min_importance is not None else []), limit * 3]
+    params: list = [*names]
+    extra = ""
+    if min_importance is not None:
+        extra += " AND COALESCE(a.importance, 0) >= ?"
+        params.append(min_importance)
+    if max_age_days is not None:
+        extra += (" AND julianday(COALESCE(a.published_at, a.fetched_at))"
+                  " >= julianday('now', ?)")
+        params.append(f"-{max_age_days} days")
+    params.append(limit * 3)
     rows = conn.execute(
         f"""SELECT a.* FROM articles a JOIN sources s ON s.id = a.source_id
-            WHERE s.active = 1 AND s.name IN ({marks}){imp_clause}
+            WHERE s.active = 1 AND s.name IN ({marks}){extra}
             ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT ?""",
         params,
     ).fetchall()
@@ -459,13 +471,14 @@ def top_podcasts(conn: sqlite3.Connection, limit: int = 8) -> list[Article]:
 # YouTube channels, pulled via each channel's own RSS feed (no API key).
 VIDEO_SOURCES = {
     "AI Daily Brief (YouTube)",
-    "Matthew Berman",
     "Matt Wolfe",
-    "AI Explained",
     "Two Minute Papers",
     "Google DeepMind (YouTube)",
     "Vaibhav Sisinty",
 }
+# Dropped: Matthew Berman and AI Explained were never clearing enrichment
+# (0% success over their full history — see enrich/summarize.py) and had been
+# starving the rest of this list's retry budget; removed from feeds.yaml too.
 
 # AI Spotlight is meant to be AI news/updates/launches, not general tutorials,
 # opinion, or (for the broader creator channels) off-topic content — so videos
@@ -485,7 +498,8 @@ def videos_feed(conn: sqlite3.Connection, limit: int = 80) -> list[Article]:
     say) crowds out lower-frequency channels that still have relevant videos."""
     per_source = max(limit // max(len(VIDEO_SOURCES), 1), 6)
     by_source = [_named_sources_feed(conn, {name}, per_source,
-                                     min_importance=VIDEO_MIN_IMPORTANCE)
+                                     min_importance=VIDEO_MIN_IMPORTANCE,
+                                     max_age_days=settings.video_max_age_days)
                 for name in VIDEO_SOURCES]
     interleaved: list[Article] = []
     for i in range(max((len(s) for s in by_source), default=0)):

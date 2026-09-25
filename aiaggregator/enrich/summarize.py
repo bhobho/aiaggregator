@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 
 from .. import db
@@ -9,6 +10,36 @@ from ..models import Article
 from . import ollama_client
 
 log = logging.getLogger(__name__)
+
+# YouTube video descriptions in particular are full of emoji, promo links and
+# smart quotes ("Join our WhatsApp Community 🔗", curly apostrophes, etc.)
+# that a small local model tends to echo back verbatim into its JSON response
+# — producing malformed JSON far more often than on plain article text (see
+# the enrichment success-rate gap between video and text sources). Stripping
+# emoji and normalizing quotes before the text ever reaches the prompt removes
+# most of that risk at the source, on top of the parser-level fallback in
+# ollama_client._parse_json_response.
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"  # symbols & pictographs, emoticons, transport, supplemental
+    "\U00002600-\U000027BF"  # misc symbols, dingbats
+    "\U0001F1E6-\U0001F1FF"  # regional indicators (flag emoji)
+    "\uFE0F"                 # variation selector-16 (emoji presentation)
+    "]+",
+    flags=re.UNICODE,
+)
+_SMART_QUOTES = str.maketrans({
+    "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"',
+})
+
+
+def _sanitize_for_prompt(text: str) -> str:
+    """Strip emoji and normalize smart quotes before building an LLM prompt."""
+    if not text:
+        return text
+    text = _EMOJI_RE.sub("", text)
+    text = text.translate(_SMART_QUOTES)
+    return " ".join(text.split())
 
 # Controlled tag vocabulary keeps tags consistent and filterable.
 TAG_VOCAB = [
@@ -74,8 +105,8 @@ def _clean_importance(val) -> int:
 
 async def enrich_article(conn: sqlite3.Connection, article: Article) -> bool:
     prompt = PROMPT_TMPL.format(
-        title=article.title,
-        summary=article.raw_summary[:1200] or "(none)",
+        title=_sanitize_for_prompt(article.title),
+        summary=_sanitize_for_prompt(article.raw_summary[:1200]) or "(none)",
         vocab=", ".join(TAG_VOCAB),
         companies=", ".join(KNOWN_COMPANIES),
     )
@@ -121,9 +152,9 @@ async def detail_summary(title: str, summary: str | None, raw: str) -> str | Non
     on the post page before the "Read full story" link — or None if Ollama is
     unavailable. Retries with a stronger nudge if the model comes back short."""
     prompt = DETAIL_PROMPT_TMPL.format(
-        title=title,
-        summary=summary or "(none)",
-        raw=raw[:1200] or "(none)",
+        title=_sanitize_for_prompt(title),
+        summary=_sanitize_for_prompt(summary) if summary else "(none)",
+        raw=_sanitize_for_prompt(raw[:1200]) or "(none)",
     )
     text = ""
     for _ in range(3):

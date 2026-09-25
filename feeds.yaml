@@ -219,14 +219,8 @@ sources:
   - name: AI Daily Brief (YouTube)
     url: https://www.youtube.com/feeds/videos.xml?channel_id=UCKelCK4ZaO6HeEI1KQjqzWA
     category: video
-  - name: Matthew Berman
-    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCzi5kcwU8aT4aLR7LcYhfWQ
-    category: video
   - name: Matt Wolfe
     url: https://www.youtube.com/feeds/videos.xml?channel_id=UChpleBmo18P08aKCIgti38g
-    category: video
-  - name: AI Explained
-    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCNJ1Ymd5yFuUPtn21xtRbbw
     category: video
   - name: Two Minute Papers
     url: https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg

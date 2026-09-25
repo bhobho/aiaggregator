@@ -1,8 +1,10 @@
 """FastAPI application: dashboard, scheduler, and lifecycle wiring."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import json
@@ -14,7 +16,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import analytics, db
+from . import analytics, db, maintenance
 from .config import settings
 from .enrich import cluster, images, summarize
 from .ingest import pipeline
@@ -85,6 +87,15 @@ async def _job_geo() -> None:
         conn.close()
 
 
+async def _job_maintenance() -> None:
+    """Keep the database lean (see maintenance.py). Runs on a worker thread:
+    the one-time VACUUM and large batch updates would otherwise stall pages."""
+    try:
+        await asyncio.to_thread(maintenance.run)
+    except Exception:
+        log.exception("db maintenance failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     conn = db.connect()
@@ -101,11 +112,15 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_job_details, "interval", seconds=settings.detail_backfill_interval,
                       id="details")
     scheduler.add_job(_job_geo, "interval", seconds=settings.geo_resolve_interval, id="geo")
+    scheduler.add_job(_job_maintenance, "cron", hour=settings.maintenance_hour, minute=30,
+                      id="maintenance")
+    # ...and once shortly after startup, after the initial fetch has settled.
+    scheduler.add_job(_job_maintenance, "date", id="maintenance_startup",
+                      run_date=datetime.now() + timedelta(minutes=5))
     scheduler.start()
     app.state.scheduler = scheduler
 
     # Kick off an initial fetch shortly after startup (non-blocking).
-    import asyncio
     asyncio.create_task(_job_fetch())
 
     log.info("aiaggregator started")

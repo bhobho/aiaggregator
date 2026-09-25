@@ -158,7 +158,9 @@ def _persist(conn: sqlite3.Connection, articles: list[Article],
     runs every minute; a per-row commit would let concurrent page renders see
     half-cleared cluster ids and show duplicate stories."""
     conn.execute("DELETE FROM clusters")
-    conn.execute("UPDATE articles SET cluster_id=NULL")
+    # Only rows that have one: an unfiltered UPDATE rewrote every article in the
+    # table on each recluster (about once a minute).
+    conn.execute("UPDATE articles SET cluster_id=NULL WHERE cluster_id IS NOT NULL")
     formed = 0
     for idxs in members:
         if len(idxs) < 2:

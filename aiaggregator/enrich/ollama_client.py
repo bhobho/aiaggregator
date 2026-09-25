@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 import httpx
 
@@ -13,6 +14,25 @@ log = logging.getLogger(__name__)
 
 class OllamaError(RuntimeError):
     pass
+
+
+# Small local models (e.g. qwen2.5:7b) sometimes wrap the requested JSON object
+# in a sentence, a markdown code fence, or trailing commentary despite
+# "format": "json" — more often on messy input (emoji-heavy YouTube
+# descriptions, promo links) than on plain article text. Rather than hard-fail
+# the whole enrichment on that, fall back to pulling out the first balanced
+# {...} block before giving up.
+_JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
+
+
+def _parse_json_response(raw: str) -> dict:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        match = _JSON_OBJECT_RE.search(raw)
+        if not match:
+            raise
+        return json.loads(match.group(0))
 
 
 async def is_available() -> bool:
@@ -54,7 +74,7 @@ async def generate_json(prompt: str, *, system: str | None = None,
                 r = await client.post(f"{settings.ollama_host}/api/generate", json=payload)
                 r.raise_for_status()
                 raw = r.json().get("response", "")
-                return json.loads(raw)
+                return _parse_json_response(raw)
         except (httpx.HTTPError, json.JSONDecodeError) as exc:
             last_exc = exc
             log.warning("ollama generate attempt %d failed: %s", attempt + 1, exc)

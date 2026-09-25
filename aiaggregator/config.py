@@ -79,6 +79,19 @@ class Settings(BaseSettings):
     user_agent: str = "aiaggregator/0.1 (+local; RSS reader)"
     max_items_per_feed: int = 50
 
+    # AI Spotlight keeps a rolling window of recent videos. A YouTube channel
+    # feed lists its latest ~15 uploads (often weeks old), so this is applied
+    # twice: at ingest (older uploads are never stored, so a cleanup can't be
+    # undone by the next fetch) and at display (stored videos age off the page
+    # on their own as time passes).
+    video_max_age_days: int = 3
+
+    # Database upkeep (maintenance.py): runs nightly inside the app.
+    maintenance_hour: int = 3          # local hour of the nightly pass
+    embedding_keep_days: int = 10      # embeddings only feed clustering (cluster_window_days)
+    failed_retention_days: int = 30    # delete never-enriched articles after this
+    content_retention_days: int = 90   # drop other outlets' stored full text after this
+
     # Clustering
     cluster_window_days: int = 7
     cluster_threshold: float = 0.42  # TF-IDF cosine (fallback path)
